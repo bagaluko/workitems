@@ -1,0 +1,31 @@
+{
+  "ai-webhook-service": "basic_dashboard.py",
+  "domain-adapter": "domain_adapter.py",
+  "learning-engine": "learning_engine.py",
+  "enhanced-dashboard": "basic_dashboard.py",
+  "basic-dashboard": "basic_dashboard.py",
+  "ai-frontend-realtime": "basic_dashboard.py",
+  "ai-websocket-service": "basic_dashboard.py",
+  "universal-neural-api": "universal-neural",
+  "ai-alert-processing": "ai-alert-processor",
+  "ai-engine-main": "main.py",
+  "universal-neural": "universal-neural",
+  "systemd_services": {
+    "ai-engine": "ai-engine.service",
+    "ai-basic-dashboard": "ai-basic-dashboard.service",
+    "ai-domain-adapter": "ai-domain-adapter.service"
+  },
+  "python_processes": {
+    "main.py": "/opt/aiengine/main.py",
+    "prometheus_alert_processor.py": "/aiengine/src/aiengine/monitoring/prometheus_alert_processor.py",
+    "basic_dashboard.py": "/aiengine/src/aiengine/services/stubs/basic_dashboard.py",
+    "domain_adapter.py": "/aiengine/src/aiengine/services/stubs/domain_adapter.py",
+    "github_enterprise_ai_monitor.py": "/aiengine/src/aiengine/services/github_enterprise_ai_monitor.py"
+  },
+  "port_mappings": {
+    "8000": "ai-engine",
+    "8052": "prometheus_alert_processor.py",
+    "5000": "basic_dashboard.py"
+  },
+  "last_updated": "2024-11-20T22:15:00Z"
+}
