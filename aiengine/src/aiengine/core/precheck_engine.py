@@ -1301,7 +1301,7 @@ Contact: {self.email_config['sender_email']}
     # [Rest of your existing methods remain unchanged]
     def load_business_rules(self) -> Dict[str, Any]:
         """Load enhanced business rules from configuration"""
-        rules_file = '/opt/aiengine/config/precheck_rules.yaml'
+        rules_file = '/aiengine/src/aiengine/config/precheck_rules.yaml'
         try:
             if os.path.exists(rules_file):
                 with open(rules_file, 'r') as f:
