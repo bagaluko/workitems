@@ -1,0 +1,101 @@
+
+# Core Web Framework & Real-time Communication
+flask
+flask-socketio
+flask-limiter
+
+# Machine Learning & AI
+torch
+torchvision
+torchaudio
+numpy
+pillow
+transformers
+pandas
+scikit-learn
+joblib
+setuptools
+jq
+blinker
+python-dotenv
+
+# Explainable AI libraries
+shap
+lime
+
+# Dashboard & Visualization
+dash
+dash-bootstrap-components
+dash-daq
+matplotlib
+seaborn
+plotly
+
+# Data Processing & Messaging
+kafka-python
+paramiko
+marshmallow
+cryptography
+sqlalchemy
+sqlite3
+sqlalchemy-utils
+sqlalchemy-migrate
+pickle-mixin
+influxdb-client
+reportlab
+databases
+asyncpg
+aiosqlite
+alembic
+dill
+cloudpickle
+websockets
+eventlet
+
+#real time dependencies
+celery
+asyncio
+aiofiles
+aiodns
+streamlit
+gradio
+
+php8.1-cli
+php8.1-fpm
+php8.1-curl
+php8.1-mbstring
+
+
+# Security & Authentication
+pyjwt
+
+# Monitoring & Metrics
+prometheus-client
+prometheus-flask-exporter
+grafana-api
+psutil
+GPUtil
+
+# Cloud & Container Integration
+docker
+requests
+pymongo
+boto3
+elasticsearch
+aiohttp
+pyyaml
+
+# Additional Scientific computing
+scipy
+
+# ML Operations
+mlflow
+
+# Database
+psycopg2-binary>=2.9.0
+redis
+
+# Development Tools (optional)
+pytest
+pytest-asyncio
+black
