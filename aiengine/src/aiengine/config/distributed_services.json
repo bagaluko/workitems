@@ -1,0 +1,34 @@
+
+{
+  "services": {
+    "ai_engine_main": {
+      "host": "10.223.210.70",
+      "port": 8000,
+      "health_endpoint": "/api/system_status"
+    },
+    "alert_processor": {
+      "host": "10.223.210.70",
+      "port": 8052,
+      "health_endpoint": "/health_report"
+    },
+    "prometheus": {
+      "host": "10.223.251.30",
+      "port": 9090,
+      "health_endpoint": "/-/healthy"
+    },
+    "alertmanager": {
+      "host": "10.223.251.30",
+      "port": 9093,
+      "health_endpoint": "/-/healthy"
+    },
+    "grafana": {
+      "host": "10.106.208.44",
+      "port": 32000,
+      "health_endpoint": "/api/health"
+    },
+    "kafka": {
+      "host": "10.106.208.44",
+      "port": 30092
+    }
+  }
+}
