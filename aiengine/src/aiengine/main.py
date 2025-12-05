@@ -80,7 +80,7 @@ try:
         print(f"   PostgreSQL User: {os.getenv('POSTGRES_USER', 'not configured')}")
         print(f"   PostgreSQL Password: {'configured' if os.getenv('POSTGRES_PASSWORD') else 'not configured'}")
     else:
-        print("⚠️ .env file not found at /opt/aiengine/.env")
+        print("⚠️ .env file not found at /aiengine/src/aiengine/.env")
 
 except ImportError:
     print("⚠️ python-dotenv not installed")
@@ -111,11 +111,11 @@ try:
 except ImportError as e:
     print(f"❌ Failed to import universal types: {e}")
     print("📁 Checking if core/universal_types.py exists...")
-    if os.path.exists('/opt/aiengine/core/universal_types.py'):
+    if os.path.exists('/aiengine/src/aiengine/core/universal_types.py'):
         print("✅ File exists, checking Python path...")
-        if '/opt/aiengine' not in sys.path:
-            sys.path.insert(0, '/opt/aiengine')
-            print("✅ Added /opt/aiengine to Python path")
+        if '/aiengine/src/aiengine' not in sys.path:
+            sys.path.insert(0, '/aiengine/src/aiengine')
+            print("✅ Added /aiengine/src/aiengine to Python path")
             try:
                 from core.universal_types import DomainType, TaskType, UniversalTask, UniversalSolution
                 print("✅ Universal types loaded after path fix")
@@ -174,7 +174,7 @@ def initialize_prometheus_integration():
     """Initialize Prometheus integration after main system is ready"""
     global PROMETHEUS_INTEGRATION_AVAILABLE
     try:
-        from prometheus_alert_receiver import PrometheusAlertReceiver
+        from monitoring.prometheus_alert_receiver import PrometheusAlertReceiver
         PROMETHEUS_INTEGRATION_AVAILABLE = True
         return PrometheusAlertReceiver
     except ImportError as e:
@@ -5579,7 +5579,7 @@ def setup_universal_monitoring(universal_system: WorldClassUniversalNeuralSystem
 
     # Prometheus Metrics Setup
     try:
-        from core.integrations.prometheus_metrics_exporter import PrometheusMetricsExporter
+        from monitoring.prometheus_metrics_exporter import PrometheusMetricsExporter
         from config.port_registry import port_registry
 
         metrics_service = port_registry.get_service("PROMETHEUS_METRICS")
@@ -5616,7 +5616,7 @@ def setup_universal_monitoring(universal_system: WorldClassUniversalNeuralSystem
 
     # Grafana Integration Setup
     try:
-        from core.integrations.grafana_integration import GrafanaIntegration
+        from config.integrations.grafana_integration import GrafanaIntegration
         from config.port_registry import port_registry
 
         grafana_service = port_registry.get_service("GRAFANA")
@@ -5988,7 +5988,6 @@ def test_database_connection(universal_system):
 
 
 
-
 def main_universal_neural_system():
     """Main function for the World-Class Universal Neural System"""
     global universal_system  # Make it accessible for signal handler
@@ -6005,17 +6004,11 @@ def main_universal_neural_system():
         except Exception as e:
             logger.warning(f"⚠️ Precheck manager check: {e}")
 
-        universal_system = WorldClassUniversalNeuralSystem()
-
-        def cleanup_timer():
-            while True:
-                time.sleep(300)
-                try:
-                    universal_system.cleanup_resources()
-                except Exception as e:
-                    logger.error(f"Cleanup failed: {e}")
-
-        threading.Thread(target=cleanup_timer, daemon=True).start()
+        # Create directories first
+        os.makedirs("logs", exist_ok=True)
+        os.makedirs("models", exist_ok=True)
+        os.makedirs("knowledge_base", exist_ok=True)
+        os.makedirs("exports", exist_ok=True)
 
         print("\n" + "="*100)
         print("🌟 INTEL UNIVERSAL NEURAL NETWORK SYSTEM")
@@ -6025,109 +6018,31 @@ def main_universal_neural_system():
         print("   🔬 Self-Learning and Self-Improving Neural Architecture")
         print("="*100)
 
-        # Initialize the Universal Neural System
+        # Initialize the Universal Neural System (only once)
+        universal_system = WorldClassUniversalNeuralSystem()
+        logger.info("✅ Intel Universal Neural System initialized")
+
+        # Start cleanup timer
+        def cleanup_timer():
+            while True:
+                time.sleep(300)  # Every 5 minutes
+                try:
+                    universal_system.cleanup_resources()
+                except Exception as e:
+                    logger.error(f"Cleanup failed: {e}")
+
+        threading.Thread(target=cleanup_timer, daemon=True).start()
+
+        # Test database connection
+        db_test_result = test_database_connection(universal_system)
+        if db_test_result:
+            logger.info("✅ Database integration verified")
+        else:
+            logger.warning("⚠️ Database integration issues detected")
+
+        # Setup GitHub service integration
         try:
-            universal_system = WorldClassUniversalNeuralSystem()
-            logger.info("✅ Intel Universal Neural System initialized")
-
-            # Test database connection
-            db_test_result = test_database_connection(universal_system)
-            if db_test_result:
-                logger.info("✅ Database integration verified")
-            else:
-                logger.warning("⚠️ Database integration issues detected")
-
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize Universal Neural System: {e}")
-            return
-
-
-            # Create directories
-            os.makedirs("logs", exist_ok=True)
-            os.makedirs("models", exist_ok=True)
-            os.makedirs("knowledge_base", exist_ok=True)
-            os.makedirs("exports", exist_ok=True)
-
-            try:
-                universal_system = WorldClassUniversalNeuralSystem()
-                logger.info("✅ Intel Universal Neural System initialized")
-
-                # Quick database check
-                if hasattr(universal_system, 'database') and universal_system.database:
-                    try:
-                        connection_ok = universal_system.database.test_connection()
-                        task_count = universal_system.database.get_task_count()
-                        logger.info(f"📊 Database: {'✅ Connected' if connection_ok else '❌ Failed'}, Tasks: {task_count}")
-                    except Exception as db_e:
-                        logger.warning(f"Database test failed: {db_e}")
-
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize Universal Neural System: {e}")
-                return
-
-
-
-
-            # ✅ ADD THIS: Main continuous learning loop
-            try:
-                task_counter = 0
-                logger.info("🔄 Starting continuous learning loop...")
-
-                while True:
-                    time.sleep(60)  # Process new tasks every minute
-                    task_counter += 1
-
-                    try:
-                        # Generate compatible domain-task type pairs
-                        domain, task_type = get_compatible_task_pair()
-                        input_data = generate_domain_specific_data(domain, task_type)
-
-                        # Create and process task
-                        continuous_task = UniversalTask(
-                            task_id=f"continuous_{task_counter}",
-                            domain=domain,
-                            task_type=task_type,
-                            input_data=input_data,
-                            metadata={'source': 'continuous_learning', 'iteration': task_counter}
-                        )
-
-                        # Process task
-                        solution = universal_system.process_universal_task(continuous_task)
-
-                        # Log progress every 10 tasks
-                        if task_counter % 10 == 0:
-                            status = universal_system.get_system_status()
-                            logger.info(f"🔄 Continuous Learning Progress:")
-                            logger.info(f"   Tasks processed: {status['performance_metrics']['total_tasks_processed']}")
-                            logger.info(f"   Success rate: {status['performance_metrics']['successful_resolutions'] / max(1, status['performance_metrics']['total_tasks_processed']) * 100:.1f}%")
-                            logger.info(f"   Domains mastered: {len(status['performance_metrics']['domains_mastered'])}")
-                            logger.info(f"   System health: {status['system_health']['overall_score']:.3f}")
-
-                        # Save state periodically
-                        if task_counter % 100 == 0:
-                            state_file = f"models/universal_system_checkpoint_{task_counter}.json"
-                            universal_system.save_system_state(state_file)
-                            logger.info(f"💾 Checkpoint saved: {state_file}")
-
-                    except Exception as e:
-                        logger.warning(f"Continuous learning iteration {task_counter} failed: {e}")
-
-            except KeyboardInterrupt:
-                logger.info("🛑 Shutting down Universal Neural System...")
-                # Save system state
-                timestamp = int(time.time())
-                state_file = f"models/universal_system_state_{timestamp}.json"
-                if universal_system.save_system_state(state_file):
-                    logger.info(f"💾 System state saved to {state_file}")
-                sys.exit(0)
-
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize Universal Neural System: {e}")
-            return
-
-            # Setup GitHub service integration
             github_service = setup_github_integration_with_universal_system(universal_system)
-
             if github_service:
                 logger.info("🔗 GitHub integration fully configured")
 
@@ -6144,226 +6059,250 @@ def main_universal_neural_system():
                         logger.warning(f"GitHub monitoring startup failed: {e}")
             else:
                 logger.info("ℹ️ Continuing without GitHub integration")
+        except Exception as e:
+            logger.warning(f"GitHub integration failed: {e}")
 
-            # Try to load previous state
-            state_file = "models/universal_system_state.json"
-            if os.path.exists(state_file):
+        # Try to load previous state
+        state_file = "models/universal_system_state.json"
+        if os.path.exists(state_file):
+            try:
                 if universal_system.load_system_state(state_file):
                     logger.info("📂 Previous system state loaded successfully")
+            except Exception as e:
+                logger.warning(f"Failed to load previous state: {e}")
 
-            # Setup monitoring
+        # Setup monitoring and services
+        try:
             monitoring_components = setup_universal_monitoring(universal_system)
             setup_prometheus_alerts(universal_system)
             setup_api_server(universal_system)
 
             # Display system information
             display_system_information(universal_system, monitoring_components)
+        except Exception as e:
+            logger.warning(f"Monitoring setup failed: {e}")
 
-            # Main continuous learning loop
+        # Define helper functions for continuous learning
+        def get_compatible_task_pair():
+            """Generate compatible domain and task type pairs"""
+            import random
+
+            domain_task_mapping = {
+                DomainType.PRECHECK_VALIDATION: [
+                    TaskType.WAIVER_DECISION,
+                    TaskType.EXCEPTION_ROUTING,
+                    TaskType.COMPLIANCE_VALIDATION,
+                    TaskType.RISK_ASSESSMENT,
+                    TaskType.APPROVAL_PREDICTION,
+                    TaskType.PRECHECK_ANALYSIS,
+                    TaskType.CLASSIFICATION,
+                    TaskType.DECISION_SUPPORT
+                ],
+                DomainType.INFRASTRUCTURE: [
+                    TaskType.ANOMALY_DETECTION,
+                    TaskType.RESOURCE_OPTIMIZATION,
+                    TaskType.MONITORING,
+                    TaskType.CLASSIFICATION,
+                    TaskType.TIME_SERIES_FORECASTING,
+                    TaskType.CONTROL_SYSTEMS
+                ],
+                DomainType.DEVOPS: [
+                    TaskType.AUTOMATION,
+                    TaskType.MONITORING,
+                    TaskType.ANOMALY_DETECTION,
+                    TaskType.PATTERN_RECOGNITION,
+                    TaskType.DECISION_SUPPORT
+                ],
+                DomainType.BUILD_AUTOMATION: [
+                    TaskType.ANOMALY_DETECTION,
+                    TaskType.PATTERN_RECOGNITION,
+                    TaskType.CLASSIFICATION,
+                    TaskType.DECISION_SUPPORT,
+                    TaskType.AUTOMATION
+                ],
+                DomainType.SOFTWARE_QUALITY: [
+                    TaskType.CLASSIFICATION,
+                    TaskType.PATTERN_RECOGNITION,
+                    TaskType.ANOMALY_DETECTION,
+                    TaskType.DECISION_SUPPORT
+                ],
+                DomainType.COMPLIANCE_MANAGEMENT: [
+                    TaskType.COMPLIANCE_VALIDATION,
+                    TaskType.RISK_ASSESSMENT,
+                    TaskType.CLASSIFICATION,
+                    TaskType.DECISION_SUPPORT
+                ],
+                DomainType.FINANCE: [
+                    TaskType.TIME_SERIES_FORECASTING,
+                    TaskType.REGRESSION,
+                    TaskType.CLASSIFICATION,
+                    TaskType.RISK_ASSESSMENT,
+                    TaskType.ANOMALY_DETECTION
+                ],
+                DomainType.HEALTHCARE: [
+                    TaskType.CLASSIFICATION,
+                    TaskType.ANOMALY_DETECTION,
+                    TaskType.PATTERN_RECOGNITION,
+                    TaskType.DECISION_SUPPORT
+                ],
+                DomainType.NATURAL_LANGUAGE: [
+                    TaskType.SENTIMENT_ANALYSIS,
+                    TaskType.TEXT_GENERATION,
+                    TaskType.CLASSIFICATION,
+                    TaskType.NATURAL_LANGUAGE_PROCESSING
+                ],
+                DomainType.COMPUTER_VISION: [
+                    TaskType.CLASSIFICATION,
+                    TaskType.PATTERN_RECOGNITION,
+                    TaskType.IMAGE_PROCESSING,
+                    TaskType.ANOMALY_DETECTION
+                ],
+                DomainType.MANUFACTURING: [
+                    TaskType.ANOMALY_DETECTION,
+                    TaskType.CLASSIFICATION,
+                    TaskType.CONTROL_SYSTEMS,
+                    TaskType.MONITORING
+                ]
+            }
+
+            # Select a random domain
+            domain = random.choice(list(domain_task_mapping.keys()))
+            # Select a compatible task type for that domain
+            compatible_tasks = domain_task_mapping[domain]
+            task_type = random.choice(compatible_tasks)
+            return domain, task_type
+
+        def generate_domain_specific_data(domain, task_type):
+            """Generate realistic input data for domain-task combinations"""
+            import random
+
+            if domain == DomainType.PRECHECK_VALIDATION:
+                return {
+                    'test_coverage': random.uniform(0.6, 0.95),
+                    'failed_tests': random.randint(0, 8),
+                    'security_issues': random.randint(0, 3),
+                    'build_id': f'BUILD-{random.randint(1000, 9999)}',
+                    'deployment_target': random.choice(['staging', 'production', 'dev']),
+                    'risk_factors': random.sample(['new_feature', 'database_migration', 'api_changes', 'config_update'],
+                                                random.randint(0, 3))
+                }
+            elif domain == DomainType.INFRASTRUCTURE:
+                return {
+                    'cpu_usage': [random.uniform(0.1, 0.9) for _ in range(5)],
+                    'memory_usage': [random.uniform(0.2, 0.8) for _ in range(5)],
+                    'network_latency': [random.randint(10, 100) for _ in range(5)],
+                    'disk_io': [random.randint(20, 200) for _ in range(5)]
+                }
+            elif domain == DomainType.FINANCE:
+                return [random.uniform(90, 110) for _ in range(10)]
+            elif domain == DomainType.NATURAL_LANGUAGE:
+                sentiments = [
+                    "This is an excellent product with amazing features!",
+                    "The service was terrible and disappointing.",
+                    "Average quality, nothing special but acceptable.",
+                    "Outstanding performance, highly recommended!",
+                    "Poor value for money, would not buy again."
+                ]
+                return random.choice(sentiments)
+            elif domain == DomainType.HEALTHCARE:
+                return {
+                    'symptoms': random.sample(['fever', 'cough', 'fatigue', 'headache', 'nausea'],
+                                            random.randint(1, 3)),
+                    'vital_signs': {
+                        'temperature': random.uniform(97.0, 102.0),
+                        'heart_rate': random.randint(60, 120),
+                        'blood_pressure': f"{random.randint(90, 160)}/{random.randint(60, 100)}"
+                    },
+                    'age': random.randint(18, 80)
+                }
+            else:
+                # Default for other domains
+                return [random.uniform(0, 1) for _ in range(random.randint(5, 20))]
+
+        # Main continuous learning loop
+        logger.info("🔄 Starting continuous learning loop...")
+        task_counter = 0
+
+        while True:
             try:
-                task_counter = 0
-                while True:
-                    time.sleep(60)  # Process new tasks every minute
-                    task_counter += 1
+                time.sleep(60)  # Process new tasks every minute
+                task_counter += 1
 
-                    try:
-                        # Generate a compatible domain-task type pair for continuous learning
-                        import random
+                try:
+                    # Generate compatible domain-task type pairs
+                    domain, task_type = get_compatible_task_pair()
+                    input_data = generate_domain_specific_data(domain, task_type)
 
-                        def get_compatible_task_pair():
-                            """Generate compatible domain and task type pairs"""
-                            # Define domain-specific task types
-                            domain_task_mapping = {
-                                DomainType.PRECHECK_VALIDATION: [
-                                    TaskType.WAIVER_DECISION,
-                                    TaskType.EXCEPTION_ROUTING,
-                                    TaskType.COMPLIANCE_VALIDATION,
-                                    TaskType.RISK_ASSESSMENT,
-                                    TaskType.APPROVAL_PREDICTION,
-                                    TaskType.PRECHECK_ANALYSIS,
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.DECISION_SUPPORT
-                                ],
-                                DomainType.INFRASTRUCTURE: [
-                                    TaskType.ANOMALY_DETECTION,
-                                    TaskType.RESOURCE_OPTIMIZATION,
-                                    TaskType.MONITORING,
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.TIME_SERIES_FORECASTING,
-                                    TaskType.CONTROL_SYSTEMS
-                                ],
-                                DomainType.DEVOPS: [
-                                    TaskType.AUTOMATION,
-                                    TaskType.MONITORING,
-                                    TaskType.ANOMALY_DETECTION,
-                                    TaskType.PATTERN_RECOGNITION,
-                                    TaskType.DECISION_SUPPORT
-                                ],
-                                DomainType.BUILD_AUTOMATION: [
-                                    TaskType.ANOMALY_DETECTION,
-                                    TaskType.PATTERN_RECOGNITION,
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.DECISION_SUPPORT,
-                                    TaskType.AUTOMATION
-                                ],
-                                DomainType.SOFTWARE_QUALITY: [
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.PATTERN_RECOGNITION,
-                                    TaskType.ANOMALY_DETECTION,
-                                    TaskType.DECISION_SUPPORT
-                                ],
-                                DomainType.COMPLIANCE_MANAGEMENT: [
-                                    TaskType.COMPLIANCE_VALIDATION,
-                                    TaskType.RISK_ASSESSMENT,
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.DECISION_SUPPORT
-                                ],
-                                DomainType.FINANCE: [
-                                    TaskType.TIME_SERIES_FORECASTING,
-                                    TaskType.REGRESSION,
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.RISK_ASSESSMENT,
-                                    TaskType.ANOMALY_DETECTION
-                                ],
-                                DomainType.HEALTHCARE: [
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.ANOMALY_DETECTION,
-                                    TaskType.PATTERN_RECOGNITION,
-                                    TaskType.DECISION_SUPPORT
-                                ],
-                                DomainType.NATURAL_LANGUAGE: [
-                                    TaskType.SENTIMENT_ANALYSIS,
-                                    TaskType.TEXT_GENERATION,
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.NATURAL_LANGUAGE_PROCESSING
-                                ],
-                                DomainType.COMPUTER_VISION: [
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.PATTERN_RECOGNITION,
-                                    TaskType.IMAGE_PROCESSING,
-                                    TaskType.ANOMALY_DETECTION
-                                ],
-                                DomainType.MANUFACTURING: [
-                                    TaskType.ANOMALY_DETECTION,
-                                    TaskType.CLASSIFICATION,
-                                    TaskType.CONTROL_SYSTEMS,
-                                    TaskType.MONITORING
-                                ]
-                            }
+                    # Create and process task
+                    continuous_task = UniversalTask(
+                        task_id=f"continuous_{task_counter}",
+                        domain=domain,
+                        task_type=task_type,
+                        input_data=input_data,
+                        metadata={'source': 'continuous_learning', 'iteration': task_counter}
+                    )
 
-                            # Select a random domain
-                            domain = random.choice(list(domain_task_mapping.keys()))
-                            # Select a compatible task type for that domain
-                            compatible_tasks = domain_task_mapping[domain]
-                            task_type = random.choice(compatible_tasks)
-                            return domain, task_type
+                    # Process task
+                    solution = universal_system.process_universal_task(continuous_task)
 
-                        def generate_domain_specific_data(domain, task_type):
-                            """Generate realistic input data for domain-task combinations"""
-                            if domain == DomainType.PRECHECK_VALIDATION:
-                                return {
-                                    'test_coverage': random.uniform(0.6, 0.95),
-                                    'failed_tests': random.randint(0, 8),
-                                    'security_issues': random.randint(0, 3),
-                                    'build_id': f'BUILD-{random.randint(1000, 9999)}',
-                                    'deployment_target': random.choice(['staging', 'production', 'dev']),
-                                    'risk_factors': random.sample(['new_feature', 'database_migration', 'api_changes', 'config_update'],
-                                                    random.randint(0, 3))
-                                }
-                            elif domain == DomainType.INFRASTRUCTURE:
-                                return {
-                                    'cpu_usage': [random.uniform(0.1, 0.9) for _ in range(5)],
-                                    'memory_usage': [random.uniform(0.2, 0.8) for _ in range(5)],
-                                    'network_latency': [random.randint(10, 100) for _ in range(5)],
-                                    'disk_io': [random.randint(20, 200) for _ in range(5)]
-                                }
-                            elif domain == DomainType.FINANCE:
-                                return [random.uniform(90, 110) for _ in range(10)]
-                            elif domain == DomainType.NATURAL_LANGUAGE:
-                                sentiments = [
-                                    "This is an excellent product with amazing features!",
-                                    "The service was terrible and disappointing.",
-                                    "Average quality, nothing special but acceptable.",
-                                    "Outstanding performance, highly recommended!",
-                                    "Poor value for money, would not buy again."
-                                ]
-                                return random.choice(sentiments)
-                            elif domain == DomainType.HEALTHCARE:
-                                return {
-                                    'symptoms': random.sample(['fever', 'cough', 'fatigue', 'headache', 'nausea'],
-                                                            random.randint(1, 3)),
-                                    'vital_signs': {
-                                         'temperature': random.uniform(97.0, 102.0),
-                                        'heart_rate': random.randint(60, 120),
-                                        'blood_pressure': f"{random.randint(90, 160)}/{random.randint(60, 100)}"
-                                    },
-                                    'age': random.randint(18, 80)
-                                }
-                            else:
-                                # Default for other domains
-                                return [random.uniform(0, 1) for _ in range(random.randint(5, 20))]
+                    # Log progress every 10 tasks
+                    if task_counter % 10 == 0:
+                        status = universal_system.get_system_status()
+                        logger.info(f"🔄 Continuous Learning Progress:")
+                        logger.info(f"   Tasks processed: {status['performance_metrics']['total_tasks_processed']}")
+                        success_rate = status['performance_metrics']['successful_resolutions'] / max(1, status['performance_metrics']['total_tasks_processed']) * 100
+                        logger.info(f"   Success rate: {success_rate:.1f}%")
+                        logger.info(f"   Domains mastered: {len(status['performance_metrics']['domains_mastered'])}")
+                        logger.info(f"   System health: {status['system_health']['overall_score']:.3f}")
 
-                        # Use the smart generators
-                        domain, task_type = get_compatible_task_pair()
-                        input_data = generate_domain_specific_data(domain, task_type)
-
-                        # Create and process task
-                        continuous_task = UniversalTask(
-                            task_id=f"continuous_{task_counter}",
-                            domain=domain,
-                            task_type=task_type,
-                            input_data=input_data,
-                            metadata={'source': 'continuous_learning', 'iteration': task_counter}
-                        )
-
-                    # Process task asynchronously
-                    # loop = asyncio.new_event_loop()
-                    # asyncio.set_event_loop(loop)
-                    # solution = loop.run_until_complete(universal_system.process_universal_task(continuous_task))
-                    # loop.close()
-                        solution = universal_system.process_universal_task(continuous_task)
-
-
-                        # Log progress every 10 tasks
-                        if task_counter % 10 == 0:
-                            status = universal_system.get_system_status()
-                            logger.info(f"🔄 Continuous Learning Progress:")
-                            logger.info(f"   Tasks processed: {status['performance_metrics']['total_tasks_processed']}")
-                            logger.info(f"   Success rate: {status['performance_metrics']['successful_resolutions'] / max(1, status['performance_metrics']['total_tasks_processed']) * 100:.1f}%")
-                            logger.info(f"   Domains mastered: {len(status['performance_metrics']['domains_mastered'])}")
-                            logger.info(f"   System health: {status['system_health']['overall_score']:.3f}")
-
-                        # Save state periodically
-                        if task_counter % 100 == 0:
-                            state_file = f"models/universal_system_checkpoint_{task_counter}.json"
+                    # Save state periodically
+                    if task_counter % 100 == 0:
+                        state_file = f"models/universal_system_checkpoint_{task_counter}.json"
+                        try:
                             universal_system.save_system_state(state_file)
                             logger.info(f"💾 Checkpoint saved: {state_file}")
+                        except Exception as e:
+                            logger.warning(f"Failed to save checkpoint: {e}")
 
-                    except Exception as e:
-                        logger.warning(f"Continuous learning iteration {task_counter} failed: {e}")
+                except Exception as e:
+                    logger.warning(f"Continuous learning iteration {task_counter} failed: {e}")
+                    # Continue with next iteration after a short delay
+                    time.sleep(10)
 
             except KeyboardInterrupt:
                 logger.info("🛑 Shutting down Universal Neural System...")
                 # Save system state
                 timestamp = int(time.time())
                 state_file = f"models/universal_system_state_{timestamp}.json"
-                if universal_system.save_system_state(state_file):
-                    logger.info(f"💾 System state saved to {state_file}")
-                sys.exit(0)
+                try:
+                    if universal_system.save_system_state(state_file):
+                        logger.info(f"💾 System state saved to {state_file}")
+                except Exception as e:
+                    logger.error(f"Failed to save final state: {e}")
+                break
             except Exception as e:
-                logger.error(f"Main loop failed: {e}")
-                sys.exit(1)
-
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize Universal Neural System: {e}")
-            import traceback
-            logger.error(f"Full traceback: {traceback.format_exc()}")
-            return
-
+                logger.error(f"Main loop error: {e}")
+                # Wait before retrying to avoid rapid failure loops
+                time.sleep(30)
 
     except Exception as e:
-        logger.error(f"Error: {e}")
-        pass
+        logger.error(f"❌ Failed to initialize Universal Neural System: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return
+
+    logger.info("🔄 System shutdown complete")
+
+
+
+
+
+
+
+
+
+
+
 
 def create_sample_tasks():
     """Create sample tasks for demonstration"""
