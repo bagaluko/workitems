@@ -1,5 +1,4 @@
 # main.py - WORLD CLASS UNIVERSAL NEURAL NETWORK SYSTEM
-
 import sys
 import os
 import gc
@@ -14,13 +13,11 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Union, Tuple, Set
 from dataclasses import dataclass, asdict, field
 from enum import Enum
-# from core.precheck_engine import PrecheckEngine
-from core.wiki_qa import WikiKnowledgeBase
-from config.settings import (get_default_host, get_env_int, get_env_bool, PORTS, is_encryption_available)
-from core.azure_connect import AzureConnection
 from collections import deque
 import logging
 from pathlib import Path
+
+MODULAR_SYSTEM_AVAILABLE = True
 
 # Add project root to path early
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +28,6 @@ if project_root not in sys.path:
 try:
     from PIL import Image
     import PIL
-
     # Fix PIL.Image.Resampling compatibility for older Pillow versions
     if not hasattr(Image, 'Resampling'):
         class Resampling:
@@ -41,7 +37,6 @@ try:
             BICUBIC = getattr(Image, 'BICUBIC', 3)
             BOX = getattr(Image, 'BOX', 4)
             HAMMING = getattr(Image, 'HAMMING', 5)
-
         Image.Resampling = Resampling
 
         # Also patch PIL.Image if accessible
@@ -51,7 +46,6 @@ try:
             pass
 
         print(f"✅ PIL compatibility fix applied (PIL version: {PIL.__version__})")
-
 except ImportError as e:
     print(f"⚠️ PIL not available: {e}")
     # Create minimal mock for transformers compatibility
@@ -61,10 +55,8 @@ except ImportError as e:
             LANCZOS = 1
             BILINEAR = 2
             BICUBIC = 3
-
     sys.modules['PIL'] = type('MockPIL', (), {'Image': MockImage})()
     print("⚠️ PIL not available - transformers image processing may not work")
-
 
 try:
     from dotenv import load_dotenv
@@ -87,6 +79,23 @@ except ImportError:
     print("   Install with: pip install python-dotenv")
     print("   Using system environment variables only")
 
+
+# Ensure PORTS_AVAILABLE is defined
+# if 'PORTS_AVAILABLE' not in globals():
+#    PORTS_AVAILABLE = False
+#    PORTS = {
+#        'AI_ENGINE_MAIN': 8000,
+#        'AI_ENGINE_API': 8090,
+#        'POSTGRESQL': 5432,
+#        'REDIS': 6379,
+#        'PROMETHEUS': 9090,
+#        'GRAFANA': 3000,
+#        'ENHANCED_DASHBOARD': 5000,
+#        'ALERT_PROCESSOR': 8052
+#    }
+#    logger.warning("⚠️ PORTS_AVAILABLE not set, using fallback configuration")
+
+
 # Validate critical PostgreSQL configuration
 def validate_postgres_config():
     """Validate PostgreSQL configuration from .env"""
@@ -103,7 +112,6 @@ def validate_postgres_config():
 
 # Validate configuration on startup
 postgres_config_valid = validate_postgres_config()
-
 
 try:
     from core.universal_types import DomainType, TaskType, UniversalTask, UniversalSolution
@@ -160,7 +168,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Prometheus integration with delayed import to avoid circular dependency
 PROMETHEUS_INTEGRATION_AVAILABLE = False
 
-
 def initialize_azure_integration():
     """Proper Azure integration initialization"""
     try:
@@ -171,15 +178,13 @@ def initialize_azure_integration():
         return None
 
 def initialize_prometheus_integration():
-    """Initialize Prometheus integration after main system is ready"""
+    """Initialize Prometheus integration (disabled due to circular import)"""
     global PROMETHEUS_INTEGRATION_AVAILABLE
-    try:
-        from monitoring.prometheus_alert_receiver import PrometheusAlertReceiver
-        PROMETHEUS_INTEGRATION_AVAILABLE = True
-        return PrometheusAlertReceiver
-    except ImportError as e:
-        print(f"⚠️ Prometheus integration not available: {e}")
-        return None
+    logger.info("🔧 Prometheus integration disabled - circular import with prometheus_alert_receiver.py")
+    logger.info("   prometheus_alert_receiver.py tries to import from main.py")
+    logger.info("   This creates a circular dependency that causes initialization errors")
+    PROMETHEUS_INTEGRATION_AVAILABLE = False
+    return None
 
 # Import utilities from shared module to avoid circular imports
 try:
@@ -197,37 +202,30 @@ try:
         parse_port_config
     )
     AI_UTILITIES_AVAILABLE = True
-    print("✅ AI utility functions imported successfully")  # Use print instead of logger
+    print("✅ AI utility functions imported successfully")
 except ImportError as e:
     AI_UTILITIES_AVAILABLE = False
-    print(f"⚠️ AI utils not available: {e}")  # Use print instead of logger
-
+    print(f"⚠️ AI utils not available: {e}")
     # Minimal fallbacks
     def safe_json_serialize(obj):
         return obj
-
     def validate_input_data(data, max_size_mb=10):
         return True, "Valid"
-
     def create_task_id(prefix="task"):
         return f"{prefix}_{int(time.time())}"
 
     def convert_deque_to_list(obj):
         return obj
 
-    # Add memory cleanup in the main loop
     def cleanup_memory_periodically(self):
         """Periodic memory cleanup to prevent leaks"""
         if hasattr(self, '_projection_cache'):
-            if len(self._projection_cache) > 100:  # Limit cache size
-                # Keep only most recently used projections
+            if len(self._projection_cache) > 100:
                 recent_keys = list(self._projection_cache.keys())[-50:]
                 self._projection_cache = {k: self._projection_cache[k] for k in recent_keys}
 
-        # Force garbage collection
         gc.collect()
 
-        # Clear completed tasks older than 1 hour
         current_time = time.time()
         old_tasks = [
             task_id for task_id, data in self.completed_tasks.items()
@@ -238,53 +236,46 @@ except ImportError as e:
 
     def parse_port_config(port_config):
         return 8000
-
     def setup_directories():
         return []
-
     def cleanup_temp_files(max_age_hours=24):
         return 0
-
     def get_system_resources():
         return {}
-
     def format_duration(seconds):
         return f"{seconds:.2f}s"
-
     def format_bytes(bytes_value):
         return f"{bytes_value}B"
-
     def health_check():
         return {'status': 'unknown'}
 
-    # Modular System Imports - Enhanced domain and task management
-    try:
-        from core.domains.domain_registry import (
-            get_domain_config,
-            get_domain_feature_weight,
-            is_task_compatible_with_domain,
-            DOMAIN_METADATA,
-            get_all_domains,
-            get_domain_stats
-        )
-        from core.tasks.task_registry import (
-            get_task_config,
-            validate_task_input,
-            get_processing_steps,
-            get_confidence_factors,
-            TASK_METADATA,
-            get_all_task_types,
-            get_task_stats
-        )
+# Modular System Imports - Enhanced domain and task management
+try:
+    from core.domains.domain_registry import (
+        get_domain_config,
+        get_domain_feature_weight,
+        is_task_compatible_with_domain,
+        DOMAIN_METADATA,
+        get_all_domains,
+        get_domain_stats
+    )
+    from core.tasks.task_registry import (
+        get_task_config,
+        validate_task_input,
+        get_processing_steps,
+        get_confidence_factors,
+        TASK_METADATA,
+        get_all_task_types,
+        get_task_stats
+    )
 
-        MODULAR_SYSTEM_AVAILABLE = True
-        print("✅ Modular domain/task system loaded successfully")
-        print(f"   📊 Domains configured: {len(DOMAIN_METADATA)}")
-        print(f"   📊 Tasks configured: {len(TASK_METADATA)}")
+    MODULAR_SYSTEM_AVAILABLE = True
+    print("✅ Modular domain/task system loaded successfully")
+    print(f"   📊 Domains configured: {len(DOMAIN_METADATA)}")
+    print(f"   📊 Tasks configured: {len(TASK_METADATA)}")
 
-
-    except ImportError as e:
-        print(f"⚠️ Modular system not available, using legacy system: {e}")
+except ImportError as e:
+    print(f"⚠️ Modular system not available, using legacy system: {e}")
 
 class PrecheckManager:
     def __init__(self):
@@ -295,15 +286,10 @@ class PrecheckManager:
 
     def _initialize(self):
         try:
-            # Import and create the precheck engine directly
             from core.precheck_engine import PrecheckEngine
             self.engine = PrecheckEngine()
-
-
-            # Create a simple processor wrapper
             self.processor = PrecheckProcessorWrapper(self.engine)
-
-            print("✅ Precheck manager with engine initialized")  # Use print instead of logger
+            print("✅ Precheck manager with engine initialized")
         except ImportError as e:
             print(f"❌ Precheck engine import failed: {e}")
         except Exception as e:
@@ -317,7 +303,6 @@ class PrecheckManager:
 
     def is_available(self):
         return self.engine is not None
-
 
 # Create a fallback PrecheckEngine
 class FallbackPrecheckEngine:
@@ -356,7 +341,6 @@ class PrecheckProcessorWrapper:
         if hasattr(self.precheck_engine, 'process_sync'):
             return self.precheck_engine.process_sync(task)
         else:
-            # Fallback to ai_analyze_failure
             return self.precheck_engine.ai_analyze_failure(task.input_data)
 
     def get_health_status(self):
@@ -369,17 +353,13 @@ class PrecheckProcessorWrapper:
                 'last_check': time.time()
             }
 
-
-# ============================================================================
-# INITIALIZE GLOBAL PRECHECK MANAGER
-# ============================================================================
+# Initialize global precheck manager
 print("🔧 Initializing global precheck manager...")
 try:
     precheck_manager = PrecheckManager()
     print("✅ Global precheck manager initialized successfully")
 except Exception as e:
     print(f"❌ Failed to initialize precheck manager: {e}")
-    # Create minimal fallback
     class MinimalPrecheckManager:
         def __init__(self):
             self.engine = FallbackPrecheckEngine()
@@ -393,35 +373,29 @@ except Exception as e:
     precheck_manager = MinimalPrecheckManager()
     print("✅ Fallback precheck manager created")
 
-        # Initialize global precheck manager
-   #     precheck_manager = PrecheckManager()
-   #     MODULAR_SYSTEM_AVAILABLE = precheck_manager.is_available()
+# Fallback: Define minimal compatibility functions
+def get_domain_feature_weight(domain, feature_name):
+    """Fallback domain feature weight function"""
+    domain_weights = {
+        'infrastructure': {'cpu': 1.0, 'memory': 0.9, 'network': 0.8},
+        'finance': {'price': 1.0, 'volume': 0.8, 'risk': 0.9},
+        'healthcare': {'temperature': 0.9, 'heart_rate': 0.85}
+    }
+    domain_dict = domain_weights.get(domain.value if hasattr(domain, 'value') else str(domain), {})
+    for key, weight in domain_dict.items():
+        if key.lower() in feature_name.lower():
+            return weight
+    return 0.5
 
+def get_domain_config(domain):
+    """Fallback domain config function"""
+    return {'description': f'Legacy {domain} domain', 'confidence_threshold': 0.6}
 
-    # Fallback: Define minimal compatibility functions
-    def get_domain_feature_weight(domain, feature_name):
-        """Fallback domain feature weight function"""
-        domain_weights = {
-            'infrastructure': {'cpu': 1.0, 'memory': 0.9, 'network': 0.8},
-            'finance': {'price': 1.0, 'volume': 0.8, 'risk': 0.9},
-            'healthcare': {'temperature': 0.9, 'heart_rate': 0.85}
-        }
-        domain_dict = domain_weights.get(domain.value if hasattr(domain, 'value') else str(domain), {})
-        for key, weight in domain_dict.items():
-            if key.lower() in feature_name.lower():
-                return weight
-        return 0.5
+def validate_task_input(task_type, input_data):
+    """Fallback task validation function"""
+    return True, "Legacy validation - no schema available"
 
-    def get_domain_config(domain):
-        """Fallback domain config function"""
-        return {'description': f'Legacy {domain} domain', 'confidence_threshold': 0.6}
-
-    def validate_task_input(task_type, input_data):
-        """Fallback task validation function"""
-        return True, "Legacy validation - no schema available"
-
-    precheck_processor = None
-
+precheck_processor = None
 
 # Core system imports with fallbacks
 try:
@@ -432,7 +406,7 @@ try:
     from torch.utils.data import DataLoader, Dataset
     PYTORCH_AVAILABLE = True
     print("✅ PyTorch loaded safely")
-    gc.collect()  # Force cleanup after PyTorch
+    gc.collect()
 except ImportError:
     PYTORCH_AVAILABLE = False
     print("⚠️ PyTorch not available - using fallback implementations")
@@ -444,7 +418,6 @@ print("⚠️ TensorFlow disabled to prevent memory conflicts")
 try:
     import transformers
     from transformers import AutoModel, AutoTokenizer
-    # Import pipelines (should work now with PIL fix)
     import transformers.pipelines
     from transformers.pipelines import pipeline
     TRANSFORMERS_AVAILABLE = True
@@ -454,7 +427,6 @@ except ImportError as e:
     TRANSFORMERS_AVAILABLE = False
     TRANSFORMERS_PIPELINE_AVAILABLE = False
     print(f"⚠️ Transformers not available: {e}")
-    # Fallback pipeline function
     def pipeline(task, model=None, **kwargs):
         return lambda x: [{"label": "POSITIVE", "score": 0.9}]
 
@@ -469,40 +441,115 @@ try:
 except ImportError:
     SKLEARN_AVAILABLE = False
 
-# Utility Functions
 
+# Basic logging setup first
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Configuration and port management
 try:
     from config.port_registry import port_registry
-    from config.settings import setup_logging, logger, FLASK_AVAILABLE, security_config
+    from config.settings import setup_logging, logger as settings_logger, FLASK_AVAILABLE, security_config
 
-    # Get AI Engine configuration from registry
+    # Use the settings logger if available
+    if settings_logger:
+        logger = settings_logger
+    # Create PORTS dictionary for backward compatibility
+    PORTS = {name: service.port for name, service in port_registry.services.items()}
+    PORTS_AVAILABLE = True
+
     ai_service = port_registry.get_service("AI_ENGINE_MAIN")
     AI_ENGINE_PORT = ai_service.port if ai_service else 8000
     AI_ENGINE_HOST = ai_service.host if ai_service else "localhost"
 
+    print("✅ Port registry loaded successfully")
+    print(f"📊 Services configured: {len(port_registry.services)}")
+    print(f"🎯 AI_ENGINE_MAIN: {AI_ENGINE_HOST}:{AI_ENGINE_PORT}")
+
+    # Ensure AI_ENGINE_API is available
+    if 'AI_ENGINE_API' not in PORTS:
+        # Add AI_ENGINE_API if not present
+        PORTS['AI_ENGINE_API'] = 8090
+        print(f"⚠️ AI_ENGINE_API not found in registry, using fallback port 8090")
+    else:
+        print(f"🎯 AI_ENGINE_API: {PORTS['AI_ENGINE_API']}")
+
+    # Log key services
+    key_services = ['AI_ENGINE_MAIN', 'AI_ENGINE_API', 'PROMETHEUS', 'GRAFANA']
+    for service in key_services:
+        service_config = port_registry.get_service(service)
+        if service_config:
+            print(f"🎯 {service}: {service_config.address}")
 
 except ImportError as e:
-    # Fallback logging setup
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logger = logging.getLogger(__name__)
     FLASK_AVAILABLE = True
+    PORTS_AVAILABLE = False
     AI_ENGINE_PORT = 8000
+    AI_ENGINE_HOST = "localhost"
+
+    # Fallback PORTS definition
+    PORTS = {
+        'AI_ENGINE_MAIN': 8000,
+        'AI_ENGINE_API': 8090,
+        'POSTGRESQL': 5432,
+        'REDIS': 6379,
+        'PROMETHEUS': 9090,
+        'GRAFANA': 3000,
+        'ENHANCED_DASHBOARD': 5000,
+        'ALERT_PROCESSOR': 8052
+    }
+
     logger.warning(f"Port registry not available, using fallback: {e}")
 
 # Setup logging
 if 'setup_logging' in globals():
     setup_logging()
 
+# Enhanced service URL functions
 def get_service_url(service_name: str) -> str:
     """Get full service URL from registry"""
     try:
-        from config.port_registry import port_registry
-        host, port = port_registry.get_host_port(service_name)
-        return f"http://{host}:{port}"
-    except ImportError:
+        if PORTS_AVAILABLE:
+            return port_registry.get_url(service_name)
+        else:
+            port = PORTS.get(service_name, 8000)
+            return f"http://localhost:{port}"
+    except (ImportError, NameError):
         return f"http://localhost:8000"
+
+def get_service_host_port(service_name: str) -> tuple:
+    """Get service host and port"""
+    try:
+        if PORTS_AVAILABLE:
+            return port_registry.get_host_port(service_name)
+        else:
+            port = PORTS.get(service_name, 8000)
+            return 'localhost', port
+    except (ImportError, NameError):
+        return 'localhost', 8000
+
+def get_service_port(service_name: str) -> int:
+    """Get service port"""
+    try:
+        if PORTS_AVAILABLE:
+            return port_registry.get_port(service_name)
+        else:
+            return PORTS.get(service_name, 8000)
+    except (ImportError, NameError):
+        return 8000
+
+def get_service_host(service_name: str) -> str:
+    """Get service host"""
+    try:
+        if PORTS_AVAILABLE:
+            return port_registry.get_host(service_name)
+        else:
+            return 'localhost'
+    except (ImportError, NameError):
+        return 'localhost'
 
 @dataclass
 class UniversalTask:
@@ -534,7 +581,6 @@ class UniversalSolution:
     model_used: str
     domain_adapted: bool = False
     learned_patterns: List[str] = None
-
     # Explainability fields
     explanation: Dict[str, Any] = None
     feature_importance: Dict[str, float] = None
@@ -559,30 +605,23 @@ class UniversalSolution:
         if self.uncertainty_analysis is None:
             self.uncertainty_analysis = {}
 
-
-
-
 class UniversalDatabase:
     """Enhanced database integration supporting multiple backends"""
 
     def __init__(self, db_type="auto", connection_string=None):
-        # Get database configuration from .env
         self.db_type = db_type if db_type != "auto" else os.getenv('DB_TYPE', 'auto')
         self.connection_string = connection_string or os.getenv('DB_CONNECTION_STRING', os.getenv('DB_NAME', 'universal_ai_prod'))
         self.lock = threading.Lock()
         self.conn = None
         self.db_available = False
 
-        # Auto-detect available database if needed
         if self.db_type == "auto":
             self.db_type = self._detect_available_database()
 
-        # Validate configuration before initialization
         validation = self.validate_configuration()
         if not validation['valid'] and self.db_type == "postgresql":
             logger.warning("⚠️PostgreSQL configuration invalid, falling back to SQLite")
             self.db_type = "sqlite"
-            # If SQLite also fails, fall back to JSON
             try:
                 self._initialize_database()
             except Exception as e:
@@ -615,7 +654,6 @@ class UniversalDatabase:
             })
             info['connection_status'] = 'connected' if self.db_available else 'disconnected'
 
-            # Safe connection URL
             if info['host'] and info['port'] and info['database'] and info['user']:
                 info['connection_url'] = f"postgresql://{info['user']}:***@{info['host']}:{info['port']}/{info['database']}?sslmode={info['ssl_mode']}"
             else:
@@ -652,7 +690,6 @@ class UniversalDatabase:
             else:
                 validation_result['valid'] = True
 
-            # Test connection if config is complete
             if validation_result['valid']:
                 try:
                     connection_test = self.test_connection()
@@ -667,7 +704,6 @@ class UniversalDatabase:
         elif self.db_type == "sqlite":
             validation_result['valid'] = True
             validation_result['recommendations'].append("Consider PostgreSQL for production use")
-
         elif self.db_type == "json":
             validation_result['valid'] = True
             validation_result['recommendations'].append("JSON storage is not recommended for production")
@@ -702,7 +738,7 @@ class UniversalDatabase:
                 test_conn.close()
                 return True
             elif self.db_type == "json":
-                return True  # JSON is always available
+                return True
             return False
         except Exception as e:
             logger.error(f"Connection test failed: {e}")
@@ -710,10 +746,8 @@ class UniversalDatabase:
 
     def _detect_available_database(self) -> str:
         """Auto-detect the best available database backend"""
-        # Try PostgreSQL first (since it's installed and working)
         try:
             import psycopg2
-            # Test actual connection
             pg_config = {
                 'host': os.getenv('POSTGRES_HOST'),
                 'port': int(os.getenv('POSTGRES_PORT', '5432')),
@@ -722,7 +756,6 @@ class UniversalDatabase:
                 'password': os.getenv('POSTGRES_PASSWORD')
             }
 
-            # Validate that all required parameters are present
             required_params = ['host', 'database', 'user', 'password']
             missing_params = [param for param in required_params if not pg_config.get(param)]
 
@@ -730,7 +763,6 @@ class UniversalDatabase:
                 logger.warning(f"⚠️ PostgreSQL config incomplete - missing: {missing_params}")
                 raise ValueError(f"Missing PostgreSQL configuration: {missing_params}")
 
-            # Test connection with .env parameters
             test_conn = psycopg2.connect(**pg_config)
             test_conn.close()
             logger.info("🔍 PostgreSQL detected and connection verified")
@@ -742,7 +774,6 @@ class UniversalDatabase:
         except Exception as e:
             logger.warning(f"⚠️ PostgreSQL connection failed: {e}")
 
-        # Try SQLite fallback
         try:
             import sqlite3
             logger.info("🔍 SQLite3 detected and available")
@@ -750,7 +781,6 @@ class UniversalDatabase:
         except ImportError:
             logger.warning("⚠️ SQLite3 not available")
 
-        # Fallback to JSON
         logger.info("🔍 Falling back to JSON file storage")
         return "json"
 
@@ -780,7 +810,6 @@ class UniversalDatabase:
         import psycopg2
         from psycopg2.extras import RealDictCursor
 
-        # Get ALL connection parameters from .env file
         host = os.getenv('POSTGRES_HOST')
         port = int(os.getenv('POSTGRES_PORT', os.getenv('DB_PORT', '5432')))
         database = os.getenv('POSTGRES_DB')
@@ -790,14 +819,12 @@ class UniversalDatabase:
 
         logger.info(f"🔍 Connecting to database: {host}:{port}/{database}")
 
-        # Validate required parameters from .env
         required_vars = ['POSTGRES_HOST', 'POSTGRES_DB', 'POSTGRES_USER', 'POSTGRES_PASSWORD']
         missing = [var for var in required_vars if not os.getenv(var)]
         if missing:
             raise ValueError(f"Missing required environment variables in .env: {missing}")
 
         try:
-            # Build connection parameters entirely from .env
             connection_params = {
                 'host': host,
                 'port': port,
@@ -811,16 +838,13 @@ class UniversalDatabase:
 
             logger.info("🔄 Establishing PostgreSQL connection using .env configuration...")
 
-            # Connect using parameters from .env
             self.conn = psycopg2.connect(**connection_params)
             self.conn.autocommit = True
 
-            # Test connection and get server info
             cursor = self.conn.cursor()
             cursor.execute("SELECT version(), current_database(), current_user")
             result = cursor.fetchone()
 
-            # Check/create schema based on .env
             schema_name = os.getenv('DB_SCHEMA', 'universal_ai')
             cursor.execute("""
                 SELECT schema_name FROM information_schema.schemata
@@ -832,10 +856,8 @@ class UniversalDatabase:
                 logger.info(f"🔧 Creating schema: {schema_name}")
                 cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
 
-            # Create tables
             self._create_postgresql_tables_with_schema()
 
-            # Log successful connection
             logger.info(f"🐘 PostgreSQL connected successfully!")
             logger.info(f"   Database: {result[1]} (User: {result[2]})")
             logger.info(f"   Version: {result[0].split(',')[0]}")
@@ -853,15 +875,12 @@ class UniversalDatabase:
         """Create PostgreSQL tables using schema and settings from .env"""
         cursor = self.conn.cursor()
 
-        # Get configuration from .env
         schema_name = os.getenv('DB_SCHEMA', 'universal_ai')
         environment = os.getenv('ENVIRONMENT', os.getenv('ENV', 'development'))
         deployment_id = os.getenv('DEPLOYMENT_ID', 'universal-ai')
 
-        # Set search path
         cursor.execute(f"SET search_path TO {schema_name}, public")
 
-        # Create tasks table
         cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS {schema_name}.tasks (
                 task_id VARCHAR(255) PRIMARY KEY,
@@ -879,7 +898,6 @@ class UniversalDatabase:
             )
         ''', (environment, deployment_id))
 
-        # Create performance metrics table
         cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS {schema_name}.performance_metrics (
                 id SERIAL PRIMARY KEY,
@@ -896,7 +914,6 @@ class UniversalDatabase:
             )
         ''', (environment, deployment_id))
 
-        # Create system status table
         cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS {schema_name}.system_status (
                 id SERIAL PRIMARY KEY,
@@ -915,7 +932,6 @@ class UniversalDatabase:
             )
         ''', (environment, deployment_id, os.getenv('DB_ID', 'postgresql')))
 
-        # Create indexes
         index_queries = [
             f'CREATE INDEX IF NOT EXISTS idx_tasks_domain ON {schema_name}.tasks(domain)',
             f'CREATE INDEX IF NOT EXISTS idx_tasks_timestamp ON {schema_name}.tasks(timestamp)',
@@ -934,12 +950,10 @@ class UniversalDatabase:
         """Setup SQLite database using .env configuration"""
         import sqlite3
 
-        # Get SQLite configuration from .env
         db_path = os.getenv('SQLITE_DB_PATH', f"{os.getenv('DB_NAME', 'universal_ai_prod')}.db")
         db_dir = os.path.dirname(db_path) if os.path.dirname(db_path) else os.getenv('DB_STORAGE_PATH', 'data')
         timeout = int(os.getenv('DB_CONNECTION_TIMEOUT', '30'))
 
-        # Ensure directory exists
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)
 
@@ -952,7 +966,6 @@ class UniversalDatabase:
                 timeout=timeout
             )
 
-            # Configure SQLite from .env
             journal_mode = os.getenv('SQLITE_JOURNAL_MODE', 'WAL')
             synchronous = os.getenv('SQLITE_SYNCHRONOUS', 'NORMAL')
             cache_size = os.getenv('SQLITE_CACHE_SIZE', '2000')
@@ -966,7 +979,6 @@ class UniversalDatabase:
             logger.info(f"📁 SQLite database initialized: {db_path}")
             logger.info(f"🔧 Journal mode: {journal_mode}")
             logger.info(f"🔧 Cache size: {cache_size}")
-
         except Exception as e:
             logger.error(f"❌ SQLite setup failed: {e}")
             raise
@@ -975,11 +987,9 @@ class UniversalDatabase:
         """Create SQLite tables using .env configuration"""
         cursor = self.conn.cursor()
 
-        # Get configuration from .env
         environment = os.getenv('ENVIRONMENT', 'development')
         deployment_id = os.getenv('DEPLOYMENT_ID', 'universal-ai')
 
-        # Create tasks table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS tasks (
                 task_id TEXT PRIMARY KEY,
@@ -997,7 +1007,6 @@ class UniversalDatabase:
             )
         ''', (environment, deployment_id))
 
-        # Create performance metrics table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS performance_metrics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1014,7 +1023,6 @@ class UniversalDatabase:
             )
         ''', (environment, deployment_id))
 
-        # Create system status table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS system_status (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1033,7 +1041,6 @@ class UniversalDatabase:
             )
         ''', (environment, deployment_id, os.getenv('DB_ID', 'sqlite')))
 
-        # Create indexes
         index_queries = [
             'CREATE INDEX IF NOT EXISTS idx_tasks_domain ON tasks(domain)',
             'CREATE INDEX IF NOT EXISTS idx_tasks_timestamp ON tasks(timestamp)',
@@ -1053,19 +1060,15 @@ class UniversalDatabase:
 
     def _setup_json(self):
         """Setup JSON file-based storage using .env configuration"""
-        # Get JSON storage configuration from .env
         storage_path = os.getenv('JSON_STORAGE_PATH', os.getenv('DB_STORAGE_PATH', 'data'))
         db_name = os.getenv('DB_NAME', 'universal_ai_prod')
-
         self.data_dir = os.path.join(storage_path, f"{db_name}_json")
         os.makedirs(self.data_dir, exist_ok=True)
 
-        # Define file paths
         self.tasks_file = os.path.join(self.data_dir, "tasks.json")
         self.metrics_file = os.path.join(self.data_dir, "metrics.json")
         self.status_file = os.path.join(self.data_dir, "system_status.json")
 
-        # Initialize files with .env metadata
         initial_metadata = {
             'environment': os.getenv('ENVIRONMENT', 'development'),
             'deployment_id': os.getenv('DEPLOYMENT_ID', 'universal-ai'),
@@ -1103,7 +1106,6 @@ class UniversalDatabase:
         """Save task to SQL database using .env configuration"""
         cursor = self.conn.cursor()
 
-        # Get configuration from .env
         schema_name = os.getenv('DB_SCHEMA', 'universal_ai')
         environment = os.getenv('ENVIRONMENT', os.getenv('ENV', 'development'))
         deployment_id = os.getenv('DEPLOYMENT_ID', 'universal-ai')
@@ -1112,11 +1114,9 @@ class UniversalDatabase:
             cursor.execute(f"SET search_path TO {schema_name}, public")
 
         try:
-            # Convert data safely
             safe_input_data = task.input_data
             safe_solution_data = solution.solution
 
-            # Insert with .env values
             if self.db_type == "postgresql":
                 query = f'''
                     INSERT INTO {schema_name}.tasks
@@ -1159,7 +1159,6 @@ class UniversalDatabase:
                 self.conn.commit()
 
             logger.debug(f"💾 Task {task.task_id} saved (env: {environment})")
-
         except Exception as e:
             logger.error(f"Failed to save task to SQL database: {e}")
             raise
@@ -1191,15 +1190,12 @@ class UniversalDatabase:
                 'created_at': time.time()
             }
 
-            # Remove existing task with same ID
             data['tasks'] = [t for t in data['tasks'] if t['task_id'] != task.task_id]
             data['tasks'].append(task_record)
 
-            # Keep only recent tasks based on .env setting
             if len(data['tasks']) > max_tasks:
                 data['tasks'] = data['tasks'][-max_tasks:]
 
-            # Update metadata
             data['metadata'].update({
                 'last_updated': time.time(),
                 'total_tasks': len(data['tasks']),
@@ -1239,7 +1235,6 @@ class UniversalDatabase:
                     ORDER BY created_at DESC
                     LIMIT ?
                 ''', (limit,))
-
                 columns = ['task_id', 'domain', 'task_type', 'confidence', 'execution_time', 'timestamp', 'created_at']
                 return [dict(zip(columns, row)) for row in cursor.fetchall()]
             elif self.db_type == "json":
@@ -1268,7 +1263,6 @@ class UniversalDatabase:
                     FROM tasks
                     GROUP BY domain
                 ''')
-
                 stats = {}
                 for row in cursor.fetchall():
                     domain, total, avg_conf, avg_time, successful = row
@@ -1285,7 +1279,6 @@ class UniversalDatabase:
                     with open(self.tasks_file, 'r') as f:
                         data = json.load(f)
                     tasks = data.get('tasks', [])
-
                     stats = {}
                     for task in tasks:
                         domain = task.get('domain', 'unknown')
@@ -1296,7 +1289,6 @@ class UniversalDatabase:
                                 'total_execution_time': 0,
                                 'successful_tasks': 0
                             }
-
                         stats[domain]['total_tasks'] += 1
                         confidence = task.get('confidence', 0)
                         stats[domain]['total_confidence'] += confidence
@@ -1304,7 +1296,6 @@ class UniversalDatabase:
                         if confidence > 0.5:
                             stats[domain]['successful_tasks'] += 1
 
-                    # Calculate averages
                     for domain, data in stats.items():
                         total = data['total_tasks']
                         if total > 0:
@@ -1316,10 +1307,8 @@ class UniversalDatabase:
                             data['avg_execution_time'] = 0
                             data['success_rate'] = 0
 
-                        # Remove temporary fields
                         del data['total_confidence']
                         del data['total_execution_time']
-
                     return stats
                 except (FileNotFoundError, json.JSONDecodeError):
                     return {}
@@ -1355,32 +1344,39 @@ class UniversalDatabase:
         """Clean up old tasks from database"""
         try:
             cutoff_time = time.time() - (days_old * 24 * 3600)
-
             if self.db_type in ["postgresql", "sqlite"]:
                 cursor = self.conn.cursor()
-                cursor.execute("DELETE FROM tasks WHERE timestamp < ?", (cutoff_time,))
-                deleted_count = cursor.rowcount
-                if self.db_type == "sqlite":
+
+                if self.db_type == "postgresql":
+                    cursor.execute("DELETE FROM tasks WHERE timestamp < %s", (cutoff_time,))
+                    deleted_count = cursor.rowcount
+                else:  # SQLite
+                    cursor.execute("DELETE FROM tasks WHERE timestamp < ?", (cutoff_time,))
+                    deleted_count = cursor.rowcount
                     self.conn.commit()
+
+                cursor.close()
                 return deleted_count
+
             elif self.db_type == "json":
                 with self.lock:
                     try:
                         with open(self.tasks_file, 'r') as f:
                             data = json.load(f)
-
                         original_count = len(data.get('tasks', []))
                         data['tasks'] = [
                             task for task in data.get('tasks', [])
                             if task.get('timestamp', 0) >= cutoff_time
                         ]
-
                         with open(self.tasks_file, 'w') as f:
                             json.dump(data, f, indent=2)
-
                         return original_count - len(data['tasks'])
                     except (FileNotFoundError, json.JSONDecodeError):
                         return 0
+            else:
+                logger.warning(f"Unknown database type for cleanup: {self.db_type}")
+                return 0
+
         except Exception as e:
             logger.error(f"Failed to cleanup old tasks: {e}")
             return 0
@@ -1423,29 +1419,13 @@ class UniversalDatabase:
             logger.error(f"Failed to export tasks to CSV: {e}")
             return False
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 class UniversalNeuralArchitecture(nn.Module if PYTORCH_AVAILABLE else object):
     """Universal Neural Network Architecture that adapts to any domain"""
-
     def __init__(self, input_dim: int = 512, hidden_dims: List[int] = None, output_dim: int = 256):
         if PYTORCH_AVAILABLE:
             super().__init__()
-
         if hidden_dims is None:
             hidden_dims = [1024, 512, 256, 128]
-
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims
         self.output_dim = output_dim
@@ -1486,7 +1466,6 @@ class UniversalNeuralArchitecture(nn.Module if PYTORCH_AVAILABLE else object):
             # Adaptive layers that can grow/shrink based on domain
             self.adaptive_layers = nn.ModuleList()
             prev_dim = self.input_dim
-
             for i, hidden_dim in enumerate(self.hidden_dims):
                 self.adaptive_layers.append(nn.Sequential(
                     nn.Linear(prev_dim, hidden_dim),
@@ -1516,7 +1495,6 @@ class UniversalNeuralArchitecture(nn.Module if PYTORCH_AVAILABLE else object):
             self.input_projection = nn.Linear(1, self.input_dim)  # Will be replaced as needed
 
             logger.info("✅ PyTorch neural architecture built successfully")
-
         except Exception as e:
             logger.error(f"❌ Failed to build PyTorch model: {e}")
             # Fall back to simple model
@@ -1657,29 +1635,23 @@ class UniversalNeuralArchitecture(nn.Module if PYTORCH_AVAILABLE else object):
                 flat_data = self._flatten_input(x)
                 tensor = torch.tensor(flat_data, dtype=torch.float32)
                 return tensor.unsqueeze(0) if tensor.dim() == 1 else tensor
-
             elif isinstance(x, dict):
                 flat_data = self._dict_to_numeric(x)
                 tensor = torch.tensor(flat_data, dtype=torch.float32)
                 return tensor.unsqueeze(0) if tensor.dim() == 1 else tensor
-
             elif isinstance(x, str):
                 numeric_repr = self._string_to_numeric(x)
                 return torch.tensor(numeric_repr, dtype=torch.float32).unsqueeze(0)
-
             elif isinstance(x, (int, float)):
                 # Single number - create a vector
                 return torch.tensor([float(x)] * min(512, self.input_dim), dtype=torch.float32).unsqueeze(0)
-
             elif hasattr(x, '__array__'):  # numpy array
                 return torch.from_numpy(x).float()
-
             else:
                 # Try to convert to string and then to numeric
                 str_repr = str(x)
                 numeric_repr = self._string_to_numeric(str_repr)
                 return torch.tensor(numeric_repr, dtype=torch.float32).unsqueeze(0)
-
         except Exception as e:
             logger.warning(f"Input tensor preparation failed: {e}")
             # Return default tensor
@@ -1697,7 +1669,6 @@ class UniversalNeuralArchitecture(nn.Module if PYTORCH_AVAILABLE else object):
 
             projection = self._projection_cache[input_size]
             return projection(x)
-
         except Exception as e:
             logger.warning(f"Input projection failed: {e}")
             # Fallback: pad or truncate
@@ -1722,11 +1693,9 @@ class UniversalNeuralArchitecture(nn.Module if PYTORCH_AVAILABLE else object):
     def _flatten_input(self, data, max_length=512):
         """Flatten nested input data to numeric array"""
         result = []
-
         def flatten_recursive(item, depth=0):
             if len(result) >= max_length or depth > 10:  # Prevent infinite recursion
                 return
-
             if isinstance(item, (int, float)):
                 if not (np.isnan(item) or np.isinf(item)):  # Skip NaN and inf
                     result.append(float(item))
@@ -1774,7 +1743,6 @@ class UniversalNeuralArchitecture(nn.Module if PYTORCH_AVAILABLE else object):
     def _dict_to_numeric(self, data_dict, max_length=512):
         """Convert dictionary to numeric array with better handling"""
         result = []
-
         # Sort keys for consistency
         sorted_items = sorted(data_dict.items(), key=lambda x: str(x[0]))
 
@@ -1934,7 +1902,6 @@ class UniversalNeuralArchitecture(nn.Module if PYTORCH_AVAILABLE else object):
 
 class DomainAdapter:
     """Adapts the universal neural network to specific domains"""
-
     def __init__(self):
         self.domain_patterns = {}
         self.domain_preprocessors = {}
@@ -1952,7 +1919,6 @@ class DomainAdapter:
             'preprocessing_steps': self._recommend_preprocessing(task),
             'postprocessing_steps': self._recommend_postprocessing(task)
         }
-
         return domain_info
 
     def _analyze_data_characteristics(self, data: Any) -> Dict[str, Any]:
@@ -2053,7 +2019,6 @@ class DomainAdapter:
     def _recommend_preprocessing(self, task: UniversalTask) -> List[str]:
         """Recommend preprocessing steps"""
         steps = ['normalize']
-
         data_chars = self._analyze_data_characteristics(task.input_data)
 
         if data_chars['is_textual']:
@@ -2075,7 +2040,6 @@ class DomainAdapter:
             steps.extend(['denormalize'])
         elif task.task_type in [TaskType.TEXT_GENERATION, TaskType.CODE_GENERATION]:
             steps.extend(['decode', 'format_output'])
-
 
         # Add format_output for precheck validation tasks
         if task.domain == DomainType.PRECHECK_VALIDATION:
@@ -2116,7 +2080,6 @@ class DomainAdapter:
 
 class UniversalLearningEngine:
     """Universal learning engine that can learn from any domain"""
-
     def __init__(self):
         self.learning_strategies = {}
         self.meta_knowledge = {}
@@ -2191,7 +2154,6 @@ class UniversalLearningEngine:
             # General patterns
             if solution.confidence > 0.9:
                 patterns.append(f"high_confidence_{task.task_type.value}")
-
             if solution.execution_time < 1.0:
                 patterns.append(f"fast_execution_{task.domain.value}")
 
@@ -2210,46 +2172,39 @@ class UniversalLearningEngine:
     def _extract_infrastructure_patterns(self, task: UniversalTask, solution: UniversalSolution) -> List[str]:
         """Extract infrastructure-specific patterns"""
         patterns = []
-
         if 'cpu' in str(task.input_data).lower():
             patterns.append('cpu_optimization')
         if 'memory' in str(task.input_data).lower():
             patterns.append('memory_management')
         if 'network' in str(task.input_data).lower():
             patterns.append('network_optimization')
-
         return patterns
 
     def _extract_finance_patterns(self, task: UniversalTask, solution: UniversalSolution) -> List[str]:
         """Extract finance-specific patterns"""
         patterns = []
-
         if 'risk' in str(task.input_data).lower():
             patterns.append('risk_assessment')
         if 'price' in str(task.input_data).lower():
             patterns.append('price_prediction')
         if 'portfolio' in str(task.input_data).lower():
             patterns.append('portfolio_optimization')
-
         return patterns
 
     def _extract_healthcare_patterns(self, task: UniversalTask, solution: UniversalSolution) -> List[str]:
         """Extract healthcare-specific patterns"""
         patterns = []
-
         if 'diagnosis' in str(task.input_data).lower():
             patterns.append('medical_diagnosis')
         if 'treatment' in str(task.input_data).lower():
             patterns.append('treatment_recommendation')
         if 'patient' in str(task.input_data).lower():
             patterns.append('patient_monitoring')
-
         return patterns
 
     def _update_meta_knowledge(self, task: UniversalTask, solution: UniversalSolution, patterns: List[str]):
         """Update meta-knowledge base"""
         domain_key = task.domain.value
-
         if domain_key not in self.meta_knowledge:
             self.meta_knowledge[domain_key] = {
                 'successful_patterns': {},
@@ -2281,7 +2236,6 @@ class UniversalLearningEngine:
     def _identify_transfer_opportunities(self, task: UniversalTask) -> List[str]:
         """Identify opportunities for transfer learning"""
         opportunities = []
-
         current_domain = task.domain.value
 
         # Look for similar domains with successful patterns
@@ -2317,7 +2271,6 @@ class UniversalLearningEngine:
     def _calculate_confidence_improvement(self, task: UniversalTask, solution: UniversalSolution) -> float:
         """Calculate how much confidence improved from learning"""
         domain_key = task.domain.value
-
         if domain_key not in self.meta_knowledge:
             return 0.0
 
@@ -2367,12 +2320,10 @@ class UniversalLearningEngine:
 
 class ExplainableAIEngine:
     """Comprehensive Explainable AI engine for the Universal Neural System"""
-
     def __init__(self):
         self.explainers = {}
         self.explanation_cache = {}
         self.visualization_cache = {}
-
         # Initialize different types of explainers
         self.text_explainer = None
         self.tabular_explainer = None
@@ -2391,16 +2342,13 @@ class ExplainableAIEngine:
                 split_expression=r'\W+',
                 bow=True,
             )
-
             logger.info("✅ Text explainer initialized")
-
         except Exception as e:
             logger.warning(f"Failed to initialize text explainer: {e}")
 
     def generate_explanation(self, task: UniversalTask, solution: UniversalSolution,
                            model: UniversalNeuralArchitecture, model_output: Any = None) -> Dict[str, Any]:
         """Generate comprehensive explanation for a solution"""
-
         explanation = {
             'method': 'comprehensive_xai',
             'timestamp': time.time(),
@@ -2559,17 +2507,14 @@ class ExplainableAIEngine:
                     if isinstance(value, (int, float)):
                         # Simple importance based on magnitude and domain knowledge
                         base_importance = abs(value) / (abs(value) + 1)
-
                         # Domain-specific importance weighting
                         domain_weight = self._get_domain_feature_weight(task.domain, key)
                         importance[key] = base_importance * domain_weight
-
                     elif isinstance(value, list) and all(isinstance(x, (int, float)) for x in value):
                         # For time series or array data
                         variance = np.var(value) if len(value) > 1 else 0
                         mean_val = np.mean(value)
                         importance[key] = min(variance + abs(mean_val) * 0.1, 1.0)
-
             elif isinstance(task.input_data, str):
                 # For text data, use simple keyword importance
                 words = task.input_data.lower().split()
@@ -2612,12 +2557,10 @@ class ExplainableAIEngine:
         }
 
         domain_dict = domain_weights.get(domain, {})
-
         # Check for exact match or partial match
         for key, weight in domain_dict.items():
             if key.lower() in feature_name.lower():
                 return weight
-
         return 0.5  # Default weight
 
     def _analyze_attention_weights(self, task: UniversalTask, model: UniversalNeuralArchitecture) -> Dict[str, Any]:
@@ -2632,7 +2575,6 @@ class ExplainableAIEngine:
         try:
             if PYTORCH_AVAILABLE and hasattr(model, 'attention'):
                 attention_analysis['attention_available'] = True
-
                 # This would require storing attention weights during forward pass
                 # For now, we'll simulate attention analysis
                 if isinstance(task.input_data, str):
@@ -2751,7 +2693,6 @@ class ExplainableAIEngine:
                     return min(np.std(numeric_values) / (np.mean(np.abs(numeric_values)) + 1e-6), 1.0)
         except:
             pass
-
         return 0.1  # Default low noise
 
     def _generate_domain_specific_explanation(self, task: UniversalTask, solution: UniversalSolution) -> Dict[str, Any]:
@@ -2767,7 +2708,6 @@ class ExplainableAIEngine:
                 domain_explanation.update(self._explain_healthcare_decision(task, solution))
             elif task.domain == DomainType.NATURAL_LANGUAGE:
                 domain_explanation.update(self._explain_nlp_decision(task, solution))
-
         except Exception as e:
             logger.warning(f"Domain-specific explanation failed: {e}")
 
@@ -2836,7 +2776,6 @@ class ExplainableAIEngine:
 
                 explanation['market_factors'].append(f"Price trend: {trend:.2%}")
                 explanation['market_factors'].append(f"Volatility: {volatility:.2%}")
-
                 explanation['risk_metrics']['volatility'] = volatility
                 explanation['risk_metrics']['trend_strength'] = abs(trend)
 
@@ -3119,24 +3058,20 @@ class ExplainableAIEngine:
                 total_fields = len(input_data)
                 valid_fields = sum(1 for v in input_data.values() if v is not None and v != "")
                 return valid_fields / total_fields if total_fields > 0 else 0.5
-
             elif isinstance(input_data, list):
                 if not input_data:
                     return 0.1
                 # Check for consistency and completeness
                 non_null_count = sum(1 for x in input_data if x is not None)
                 return non_null_count / len(input_data)
-
             elif isinstance(input_data, str):
                 # Basic text quality assessment
                 if len(input_data.strip()) == 0:
                     return 0.1
                 word_count = len(input_data.split())
                 return min(word_count / 10, 1.0)  # Normalize by expected word count
-
             else:
                 return 0.7  # Default for other types
-
         except Exception:
             return 0.5  # Default quality score
 
@@ -3150,9 +3085,7 @@ class ExplainableAIEngine:
                     entropy = -sum(p * np.log(p + 1e-10) for p in probs if p > 0)
                     max_entropy = np.log(len(probs))  # Maximum possible entropy
                     return entropy / max_entropy if max_entropy > 0 else 0.5
-
             return 0.3  # Default uncertainty
-
         except Exception:
             return 0.5  # Default uncertainty on error
 
@@ -3264,23 +3197,6 @@ class WorldClassUniversalNeuralSystem:
 
         logger.info("✅ All components initialized successfully")
 
-        # ADD THIS SECTION HERE - PROPERLY INDENTED INSIDE THE __init__ METHOD
-        # Initialize Wiki Knowledge Base
-        # logger.debug("🔧 Initializing Wiki Knowledge Base...")
-        # try:
-        #    from core.wiki_qa import WikiKnowledgeBase
-        #    self.wiki_kb = WikiKnowledgeBase()
-        #    if self.wiki_kb.initialized:
-        #        logger.info("✅ Wiki Knowledge Base integrated successfully")
-        #        # Add to performance metrics
-        #        self.performance_metrics['wiki_questions_processed'] = 0
-        #    else:
-        #        logger.warning("⚠️ Wiki Knowledge Base not available - continuing without wiki support")
-        #        self.wiki_kb = None
-        # except Exception as e:
-        #    logger.error(f"❌ Failed to initialize Wiki Knowledge Base: {e}")
-        #    self.wiki_kb = None
-
         # Initialize Wiki Knowledge Base - ENHANCED WITH NEURAL INTEGRATION
         logger.debug("🔧 Initializing Wiki Knowledge Base with Neural Integration...")
         try:
@@ -3313,23 +3229,8 @@ class WorldClassUniversalNeuralSystem:
             logger.info(f"   Error details: {str(e)}")
             self.wiki_kb = None
 
-
-    # Initialize Wiki Knowledge Base
-    # try:
-    #    self.wiki_kb = WikiKnowledgeBase()
-    #    if self.wiki_kb.initialized:
-    #        logger.info("✅ Wiki Knowledge Base integrated successfully")
-    #    else:
-    #        logger.warning("⚠️ Wiki Knowledge Base not available")
-    #        self.wiki_kb = None
-    #except Exception as e:
-    #    logger.error(f"❌ Failed to initialize Wiki Knowledge Base: {e}")
-    #    self.wiki_kb = None
-
-
     # Add this method to handle wiki questions
     async def process_wiki_question(self, question: str, max_tokens: int = 1000, include_sources: bool = True) -> Dict:
-    # def process_wiki_question(self, question: str, max_tokens: int = 1000, include_sources: bool = True) -> Dict:
         """Process a wiki-based question"""
         if not self.wiki_kb or not self.wiki_kb.initialized:
             return {
@@ -3343,13 +3244,11 @@ class WorldClassUniversalNeuralSystem:
             # Update performance metrics
             start_time = time.time()
             result = await self.wiki_kb.answer_question(question, max_tokens, include_sources)
-
             # Trace wiki question processing
             processing_time = time.time() - start_time
             if 'wiki_questions_processed' not in self.performance_metrics:
                 self.performance_metrics['wiki_questions_processed'] = 0
             self.performance_metrics['wiki_questions_processed'] += 1
-
             return {
                 "success": True,
                 "question": question,
@@ -3368,7 +3267,6 @@ class WorldClassUniversalNeuralSystem:
                 "answer": f"Error processing question: {str(e)}",
                 "timestamp": datetime.now().isoformat()
             }
-
 
     def process_precheck_task_sync(self, task: UniversalTask) -> UniversalSolution:
         """Improved synchronous precheck task processing"""
@@ -3411,8 +3309,6 @@ class WorldClassUniversalNeuralSystem:
                 execution_time=execution_time,
                 model_used="error_handler"
             )
-
-
 
     def _fallback_precheck_processing(self, task: UniversalTask, start_time: float) -> UniversalSolution:
         """Enhanced fallback using existing precheck engine"""
@@ -3469,7 +3365,6 @@ class WorldClassUniversalNeuralSystem:
             metadata=task.metadata
         )
 
-
     def cleanup_resources(self):
         """Clean up system resources periodically"""
         try:
@@ -3515,7 +3410,6 @@ class WorldClassUniversalNeuralSystem:
         except Exception as e:
             logger.error(f"Resource cleanup failed: {e}")
 
-    #async def process_universal_task(self, task: UniversalTask) -> UniversalSolution:
     def process_universal_task(self, task: UniversalTask) -> UniversalSolution:
         """Process any universal task and provide a solution"""
         start_time = time.time()
@@ -4076,34 +3970,6 @@ class WorldClassUniversalNeuralSystem:
         except Exception as e:
             logger.warning(f"Performance metrics update failed: {e}")
 
-    # def get_system_status(self) -> Dict[str, Any]:
-    #    """Get comprehensive system status"""
-    #    current_time = time.time()
-    #    uptime = current_time - self.start_time
-    #
-    #    status = {
-    #        'system_id': self.system_id,
-    #        'uptime_seconds': uptime,
-    #        'uptime_hours': uptime / 3600,
-    #        'performance_metrics': self.performance_metrics.copy(),
-    #        'active_tasks': len(self.active_tasks),
-    #        'completed_tasks': len(self.completed_tasks),
-    #        'domain_expertise': self.domain_expertise_levels.copy(),
-    #        'learning_insights': self.learning_engine.get_learning_insights(),
-    #        'system_health': self._assess_system_health(),
-    #        'capabilities': {
-    #            'pytorch_available': PYTORCH_AVAILABLE,
-    #            'tensorflow_available': TENSORFLOW_AVAILABLE,
-    #            'transformers_available': TRANSFORMERS_AVAILABLE,
-    #            'sklearn_available': SKLEARN_AVAILABLE
-    #        },
-    #        'timestamp': current_time
-    #    }
-    #
-    #    # Convert set to list for JSON serialization
-    #    status['performance_metrics']['domains_mastered'] = list(status['performance_metrics']['domains_mastered'])
-    #    return status
-
     def get_system_status(self) -> Dict[str, Any]:
         """Get comprehensive system status including wiki knowledge base"""
         current_time = time.time()
@@ -4112,13 +3978,6 @@ class WorldClassUniversalNeuralSystem:
         # Database status
         db_status = "unknown"
         db_tasks = 0
-        #try:
-        #    if hasattr(self, 'db_connection') and self.db_connection:
-        #        cursor = self.db_connection.cursor()
-        #        cursor.execute("SELECT COUNT(*) FROM universal_ai.tasks")
-        #        db_tasks = cursor.fetchone()[0]
-        #        db_status = "connected"
-        #        cursor.close()
         try:
             if hasattr(self, 'database') and self.database and hasattr(self.database, 'db_connection') and self.database.db_connection:
                 cursor = self.database.db_connection.cursor()
@@ -4281,8 +4140,6 @@ class WorldClassUniversalNeuralSystem:
             logger.error(f"Status determination error: {e}")
             return 'unknown'
 
-
-
     def _assess_system_health(self) -> Dict[str, Any]:
         """Assess overall system health"""
         health = {
@@ -4419,91 +4276,31 @@ class WorldClassUniversalNeuralSystem:
 
 # API Server for the Universal System
 class UniversalNeuralAPI:
-    """REST API for the Universal Neural System"""
+    """Universal Neural Network API with endpoint conflict resolution"""
 
-    def __init__(self, universal_system: WorldClassUniversalNeuralSystem):
+    def __init__(self, universal_system):
         self.system = universal_system
         self.app = None
 
         if FLASK_AVAILABLE:
             from flask import Flask, request, jsonify
             self.app = Flask(__name__)
+            # Clear any existing endpoints to prevent conflicts
+            self.app.url_map._rules.clear()
+            self.app.view_functions.clear()
             self._setup_routes()
 
     def _setup_routes(self):
         """Setup API routes"""
         if not self.app:
             return
+
         from flask import request, jsonify
-
-        @self.app.route('/api/azure/integrate', methods=['POST'])
-        def integrate_azure():
-            """Integrate Azure services with running system"""
-            try:
-                # Check if Azure is already integrated
-                azure_status = {
-                    'azure_connect_imported': 'azure_connect' in sys.modules,
-                    'system_has_azure': hasattr(self.system, 'azure_connection'),
-                    'precheck_has_azure': False
-                }
-
-                # Try to integrate Azure with precheck
-                if hasattr(self.system, 'precheck_processor') and self.system.precheck_processor:
-                    if hasattr(self.system.precheck_processor, 'precheck_engine'):
-                        precheck_engine = self.system.precheck_processor.precheck_engine
-                        azure_status['precheck_has_azure'] = hasattr(precheck_engine, 'azure_monitor')
-
-                # Initialize Azure connection if not present
-                if not hasattr(self.system, 'azure_connection'):
-                    try:
-                        from core.azure_connect import AzureConnection
-                        self.system.azure_connection = AzureConnection()
-                        azure_status['azure_connection_created'] = True
-                    except Exception as e:
-                        azure_status['azure_connection_error'] = str(e)
-
-                return jsonify({
-                    'success': True,
-                    'message': 'Azure integration status checked and updated',
-                    'azure_status': azure_status,
-                    'timestamp': time.time()
-                })
-
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-
-        @self.app.route('/api/azure/status', methods=['GET'])
-        def azure_status():
-            """Get Azure integration status"""
-            try:
-                import sys
-                status = {
-                    'azure_connect_module_available': 'azure_connect' in sys.modules,
-                    'core_azure_connect_available': 'core.azure_connect' in sys.modules,
-                    'system_azure_connection': hasattr(self.system, 'azure_connection'),
-                    'precheck_azure_integration': False,
-                    'timestamp': time.time()
-                }
-
-                # Check precheck Azure integration
-                if hasattr(self.system, 'precheck_processor') and self.system.precheck_processor:
-                    if hasattr(self.system.precheck_processor, 'precheck_engine'):
-                        precheck_engine = self.system.precheck_processor.precheck_engine
-                        status['precheck_azure_integration'] = hasattr(precheck_engine, 'azure_monitor')
-
-                return jsonify(status)
-
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
 
         @self.app.route('/api/process_task', methods=['POST'])
         def process_task():
             try:
                 data = request.json
-
                 # Create universal task
                 task = UniversalTask(
                     task_id=data.get('task_id', f"task_{int(time.time())}"),
@@ -4517,11 +4314,7 @@ class UniversalNeuralAPI:
                 )
 
                 # Process task (synchronous for API)
-                import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                solution = loop.run_until_complete(self.system.process_universal_task(task))
-                loop.close()
+                solution = self.system.process_universal_task(task)
 
                 return jsonify({
                     'success': True,
@@ -4532,7 +4325,6 @@ class UniversalNeuralAPI:
                     'execution_time': solution.execution_time,
                     'model_used': solution.model_used
                 })
-
             except Exception as e:
                 return jsonify({
                     'success': False,
@@ -4554,609 +4346,25 @@ class UniversalNeuralAPI:
                 'task_types': [task_type.value for task_type in TaskType]
             })
 
-        @self.app.route('/api/database/verify_data', methods=['GET'])
-        def verify_database_data():
-            """Verify data is actually being saved to PostgreSQL"""
-            try:
-                if not self.system.database:
-                    return jsonify({'error': 'Database not available'}), 400
-
-                # Get database statistics
-                stats = {
-                    'database_type': self.system.database.db_type,
-                    'connection_test': self.system.database.test_connection(),
-                    'total_tasks': self.system.database.get_task_count(),
-                    'recent_tasks': self.system.database.get_recent_tasks(10),
-                    'domain_stats': self.system.database.get_domain_statistics()
-                }
-
-                return jsonify({
-                    'success': True,
-                    'database_verification': stats
-                })
-
-            except Exception as e:
-                return jsonify({'success': False, 'error': str(e)}), 500
-
-
-        @self.app.route('/api/explain_task/<task_id>', methods=['GET'])
-        def explain_task(task_id):
-            """Get detailed explanation for a completed task"""
-            try:
-                if task_id in self.system.completed_tasks:
-                    task_data = self.system.completed_tasks[task_id]
-                    solution = task_data['solution']
-
-                    if hasattr(solution, 'explanation') and solution.explanation:
-                        return jsonify({
-                            'success': True,
-                            'task_id': task_id,
-                            'explanation': solution.explanation,
-                            'feature_importance': solution.feature_importance,
-                            'decision_path': solution.decision_path,
-                            'counterfactuals': solution.counterfactuals,
-                            'uncertainty_analysis': solution.uncertainty_analysis
-                        })
-                    else:
-                        return jsonify({
-                            'success': False,
-                            'error': 'No explanation available for this task'
-                        }), 404
-                else:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Task not found'
-                    }), 404
-
-            except Exception as e:
-                return jsonify({'success': False, 'error': str(e)}), 500
-
-        @self.app.route('/api/explain_prediction', methods=['POST'])
-        def explain_prediction():
-            """Get explanation for a new prediction without storing the task"""
-            try:
-                data = request.json
-
-                # Create temporary task
-                temp_task = UniversalTask(
-                    task_id=f"explain_{int(time.time())}",
-                    domain=DomainType(data.get('domain', 'generic')),
-                    task_type=TaskType(data.get('task_type', 'classification')),
-                    input_data=data.get('input_data'),
-                    metadata={'explanation_only': True}
-                )
-
-                # Process task
-                import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                solution = loop.run_until_complete(self.system.process_universal_task(temp_task))
-                loop.close()
-
-                return jsonify({
-                    'success': True,
-                    'prediction': solution.solution,
-                    'confidence': solution.confidence,
-                    'explanation': solution.explanation,
-                    'human_readable_summary': solution.explanation.get('human_readable_summary', ''),
-                    'feature_importance': solution.feature_importance,
-                    'decision_factors': solution.explanation.get('decision_factors', []),
-                    'uncertainty_analysis': solution.uncertainty_analysis
-                })
-
-            except Exception as e:
-                return jsonify({'success': False, 'error': str(e)}), 500
-
-        @self.app.route('/api/explanation_visualization/<task_id>', methods=['GET'])
-        def get_explanation_visualization(task_id):
-            """Get visualization data for explanation"""
-            try:
-                if task_id in self.system.completed_tasks:
-                    solution = self.system.completed_tasks[task_id]['solution']
-
-                    if hasattr(solution, 'explanation') and solution.explanation:
-                        visualizations = solution.explanation.get('visualizations', {})
-                        return jsonify({
-                            'success': True,
-                            'visualizations': visualizations
-                        })
-                    else:
-                        return jsonify({
-                            'success': False,
-                            'error': 'No visualization data available'
-                        }), 404
-                else:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Task not found'
-                    }), 404
-
-            except Exception as e:
-                return jsonify({'success': False, 'error': str(e)}), 500
-
-
-        @self.app.route('/api/precheck/enhanced_analysis', methods=['POST'])
-        def enhanced_precheck_analysis():
-            """Enhanced precheck analysis with service monitoring"""
-            try:
-                data = request.json
-
-                # Create enhanced precheck task
-                task = UniversalTask(
-                    task_id=data.get('task_id', f"enhanced_precheck_{int(time.time())}"),
-                    domain=DomainType.PRECHECK_VALIDATION,
-                    task_type=TaskType.PRECHECK_ANALYSIS,
-                    input_data={
-                        **data.get('precheck_data', {}),
-                        'enhanced_analysis_requested': True
-                    },
-                    metadata={
-                        'source': 'enhanced_api_request',
-                        'service_monitoring_enabled': True
-                    }
-                )
-
-                # Process with enhanced system
-                solution = self.system.process_universal_task(task)
-
-                return jsonify({
-                    'success': True,
-                    'task_id': task.task_id,
-                    'enhanced_analysis': solution.solution,
-                    'confidence': solution.confidence,
-                    'service_health_considered': solution.solution.get('service_health_considered', False),
-                    'service_health_score': solution.solution.get('service_health_score', 0.5),
-                    'business_rule_applied': solution.solution.get('business_rule_applied', 'unknown'),
-                    'execution_time': solution.execution_time
-                })
-
-            except Exception as e:
-                return jsonify({'success': False, 'error': str(e)}), 500        @self.app.route('/api/debug/precheck_components', methods=['GET'])
-        def debug_precheck_components():
-            """Debug endpoint to check precheck component availability"""
-            try:
-                debug_info = {
-                    'system_attributes': [],
-                    'self_attributes': [],
-                    'precheck_coordinator': {
-                        'exists': hasattr(self, 'precheck_coordinator'),
-                        'value': getattr(self, 'precheck_coordinator', None) is not None if hasattr(self, 'precheck_coordinator') else False
-                    },
-                    'precheck_processor': {
-                        'exists': hasattr(self, 'precheck_processor'),
-                        'value': getattr(self, 'precheck_processor', None) is not None if hasattr(self, 'precheck_processor') else False
-                    },
-                    'system_object': {
-                        'exists': hasattr(self, 'system'),
-                        'value': getattr(self, 'system', None) is not None if hasattr(self, 'system') else False
-                    }
-                }
-
-                # Check self attributes
-                for attr in dir(self):
-                    if 'precheck' in attr.lower():
-                        debug_info['self_attributes'].append({
-                            'name': attr,
-                            'type': str(type(getattr(self, attr, None))),
-                            'value_exists': getattr(self, attr, None) is not None
-                        })
-
-                # Check system attributes if system exists
-                if hasattr(self, 'system') and self.system:
-                    for attr in dir(self.system):
-                        if 'precheck' in attr.lower():
-                            debug_info['system_attributes'].append({
-                                'name': attr,
-                                'type': str(type(getattr(self.system, attr, None))),
-                                'value_exists': getattr(self.system, attr, None) is not None
-                            })
-
-                return jsonify({
-                    'success': True,
-                    'debug_info': debug_info,
-                    'timestamp': time.time()
-                })
-
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e),
-                    'timestamp': time.time()
-                }), 500        @self.app.route('/api/debug/system_components', methods=['GET'])
-        def debug_system_components():
-            """Debug endpoint to check system object components"""
-            try:
-                debug_info = {
-                    'system_exists': hasattr(self, 'system'),
-                    'system_type': str(type(getattr(self, 'system', None))),
-                    'system_attributes': [],
-                    'precheck_related': []
-                }
-
-                if hasattr(self, 'system') and self.system:
-                    # Get all system attributes
-                    for attr in dir(self.system):
-                        if not attr.startswith('_'):
-                            try:
-                                value = getattr(self.system, attr)
-                                debug_info['system_attributes'].append({
-                                    'name': attr,
-                                    'type': str(type(value)),
-                                    'exists': value is not None,
-                                    'callable': callable(value)
-                                })
-
-                                # Check for precheck-related attributes
-                                if 'precheck' in attr.lower():
-                                    debug_info['precheck_related'].append({
-                                        'name': attr,
-                                        'type': str(type(value)),
-                                        'exists': value is not None,
-                                        'has_engine': hasattr(value, 'precheck_engine') if value else False
-                                    })
-                            except Exception as e:
-                                debug_info['system_attributes'].append({
-                                    'name': attr,
-                                    'error': str(e)
-                                })
-
-                return jsonify({
-                    'success': True,
-                    'debug_info': debug_info,
-                    'timestamp': time.time()
-                })
-
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e),
-                    'timestamp': time.time()
-                }), 500        @self.app.route('/api/debug/comprehensive_precheck', methods=['GET'])
-        def comprehensive_precheck_debug():
-            """Comprehensive debug endpoint to find precheck components"""
-            try:
-                debug_info = {
-                    'flask_app_self': {
-                        'type': str(type(self)),
-                        'precheck_attrs': [attr for attr in dir(self) if 'precheck' in attr.lower()],
-                        'system_exists': hasattr(self, 'system'),
-                        'system_type': str(type(getattr(self, 'system', None)))
-                    },
-                    'system_object': {},
-                    'global_search': {},
-                    'module_search': {}
-                }
-
-                # Check system object thoroughly
-                if hasattr(self, 'system') and self.system:
-                    system_obj = self.system
-                    debug_info['system_object'] = {
-                        'type': str(type(system_obj)),
-                        'all_attrs': [attr for attr in dir(system_obj) if not attr.startswith('_')],
-                        'precheck_attrs': [attr for attr in dir(system_obj) if 'precheck' in attr.lower()],
-                        'processor_attrs': [attr for attr in dir(system_obj) if 'processor' in attr.lower()]
-                    }
-
-                    # Check each precheck attribute
-                    for attr in [attr for attr in dir(system_obj) if 'precheck' in attr.lower()]:
-                        try:
-                            value = getattr(system_obj, attr)
-                            debug_info['system_object'][f'{attr}_details'] = {
-                                'type': str(type(value)),
-                                'exists': value is not None,
-                                'has_engine': hasattr(value, 'precheck_engine') if value else False,
-                                'engine_type': str(type(getattr(value, 'precheck_engine', None))) if hasattr(value, 'precheck_engine') else None
-                            }
-                        except Exception as e:
-                            debug_info['system_object'][f'{attr}_error'] = str(e)
-
-                # Try to find precheck processor in globals
-                import sys
-                current_module = sys.modules[__name__]
-                debug_info['module_search'] = {
-                    'module_attrs': [attr for attr in dir(current_module) if 'precheck' in attr.lower()],
-                    'globals_precheck': [key for key in globals().keys() if 'precheck' in key.lower()]
-                }
-
-                return jsonify({
-                    'success': True,
-                    'debug_info': debug_info,
-                    'timestamp': time.time()
-                })
-
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e),
-                    'timestamp': time.time()
-                }), 500
-
-        @self.app.route('/api/precheck/service_health_working', methods=['GET'])
-        def precheck_service_health_working():
-            """Working precheck service health using available system methods"""
-            try:
-                if not hasattr(self, 'system') or not self.system:
-                    return jsonify({
-                        'success': False,
-                        'error': 'System object not available'
-                    }), 503
-
-                system_obj = self.system
-
-                # Check if we have the format precheck output method
-                if hasattr(system_obj, '_format_precheck_output'):
-                    try:
-                        # Try to get some basic precheck information
-                        precheck_info = {
-                            'precheck_available': True,
-                            'system_has_precheck_formatter': True,
-                            'timestamp': time.time()
-                        }
-
-                        # Try to call the format method with some basic data
-                        try:
-                            formatted_output = system_obj._format_precheck_output({
-                                'status': 'healthy',
-                                'services': ['precheck_engine', 'precheck_processor'],
-                                'timestamp': time.time()
-                            })
-                            precheck_info['formatted_output'] = formatted_output
-                        except Exception as format_error:
-                            precheck_info['format_error'] = str(format_error)
-
-                        return jsonify({
-                            'success': True,
-                            'precheck_monitoring_enabled': True,
-                            'service_health': precheck_info,
-                            'access_method': 'system_format_method'
-                        })
-
-                    except Exception as e:
-                        return jsonify({
-                            'success': False,
-                            'error': f'Error accessing precheck formatter: {str(e)}',
-                            'access_method': 'system_format_method'
-                        }), 500
-
-                # Fallback: provide basic system health info
-                basic_health = {
-                    'system_active': True,
-                    'system_id': getattr(system_obj, 'system_id', 'unknown'),
-                    'active_tasks': getattr(system_obj, 'active_tasks', 0),
-                    'completed_tasks': getattr(system_obj, 'completed_tasks', 0),
-                    'database_available': hasattr(system_obj, 'database'),
-                    'timestamp': time.time()
-                }
-
-                return jsonify({
-                    'success': True,
-                    'precheck_monitoring_enabled': False,
-                    'service_health': basic_health,
-                    'access_method': 'basic_system_info',
-                    'note': 'Precheck engine not directly accessible, showing basic system health'
-                })
-
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500        @self.app.route('/api/precheck/direct_access', methods=['GET'])
-        def precheck_direct_access():
-            """Try to access precheck processor directly"""
-            try:
-                import sys
-
-                # Try to find precheck processor in the current module
-                current_module = sys.modules[__name__]
-
-                # Look for precheck-related globals
-                precheck_globals = {}
-                for name, obj in globals().items():
-                    if 'precheck' in name.lower():
-                        precheck_globals[name] = {
-                            'type': str(type(obj)),
-                            'has_engine': hasattr(obj, 'precheck_engine') if obj else False
-                        }
-
-                # Try to access through main module attributes
-                main_module_precheck = {}
-                if hasattr(current_module, '__dict__'):
-                    for name, obj in current_module.__dict__.items():
-                        if 'precheck' in name.lower():
-                            main_module_precheck[name] = {
-                                'type': str(type(obj)),
-                                'has_engine': hasattr(obj, 'precheck_engine') if obj else False
-                            }
-
-                return jsonify({
-                    'success': True,
-                    'precheck_globals': precheck_globals,
-                    'main_module_precheck': main_module_precheck,
-                    'module_name': __name__,
-                    'timestamp': time.time()
-                })
-
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-
-
-
-
-        @self.app.route('/api/precheck/service_health', methods=['GET'])
-        def precheck_service_health():
-            """Get current precheck service health"""
-            try:
-                processor = precheck_manager.get_processor()
-                if not processor:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Precheck processor not available'
-                    }), 503
-
-                health_data = processor.get_health_status()
-                return jsonify({
-                    'success': True,
-                    'precheck_monitoring_enabled': True,
-                    'service_health': health_data,
-                    'timestamp': time.time()
-                })
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-
-        @self.app.route('/api/precheck/enhanced_analysis', methods=['POST'])
-        def enhanced_precheck_analysis():
-            """Enhanced precheck analysis with proper error handling"""
-            try:
-                data = request.json
-                if not data:
-                    return jsonify({
-                        'success': False,
-                        'error': 'No data provided'
-                    }), 400
-
-                # Validate input
-                validator = PrecheckInputValidator()
-                try:
-                    validated_data = validator.validate(data.get('precheck_data', {}))
-                except ValidationError as e:
-                    return jsonify({
-                        'success': False,
-                        'error': f'Input validation failed: {str(e)}'
-                    }), 400
-
-                # Create task
-                task = UniversalTask(
-                    task_id=data.get('task_id', f"enhanced_precheck_{int(time.time())}"),
-                    domain=DomainType.PRECHECK_VALIDATION,
-                    task_type=TaskType.PRECHECK_ANALYSIS,
-                    input_data=validated_data,
-                    metadata={
-                        'source': 'enhanced_api_request',
-                        'service_monitoring_enabled': True,
-                        'request_timestamp': time.time()
-                    }
-                )
-
-                # Process with enhanced system
-                solution = self.system.process_precheck_task_sync(task)
-
-                return jsonify({
-                    'success': True,
-                    'task_id': task.task_id,
-                    'analysis': solution.solution,
-                    'confidence': solution.confidence,
-                    'reasoning': solution.reasoning,
-                    'execution_time': solution.execution_time,
-                    'model_used': solution.model_used
-                })
-
-            except Exception as e:
-                logger.error(f"Enhanced precheck analysis failed: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-
-
-
-        @self.app.route('/api/precheck/refresh_services', methods=['POST'])
-        def refresh_precheck_services():
-            """Force refresh of precheck service data - WORKING VERSION"""
-            try:
-                # Access the global precheck_processor variable
-                global precheck_processor, MODULAR_SYSTEM_AVAILABLE
-
-                if not MODULAR_SYSTEM_AVAILABLE:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Modular system not available'
-                    }), 503
-
-                if not precheck_processor:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Precheck processor not initialized'
-                    }), 503
-
-                # Access the precheck engine from the processor
-                if hasattr(precheck_processor, 'precheck_engine') and precheck_processor.precheck_engine:
-                    precheck_engine = precheck_processor.precheck_engine
-
-                    # Try azure_monitor refresh
-                    if hasattr(precheck_engine, 'azure_monitor') and precheck_engine.azure_monitor:
-                        try:
-                            precheck_engine.azure_monitor.refresh_service_data()
-                            fresh_data = precheck_engine.azure_monitor.get_service_health()
-                            return jsonify({
-                                'success': True,
-                                'message': 'Precheck service data refreshed via global processor',
-                                'refresh_timestamp': time.time(),
-                                'fresh_data': fresh_data
-                            })
-                        except Exception as azure_error:
-                            return jsonify({
-                                'success': False,
-                                'error': f'Azure monitor refresh failed: {str(azure_error)}'
-                            }), 500
-
-                    # If no azure monitor, return basic refresh confirmation
-                    return jsonify({
-                        'success': True,
-                        'message': 'Precheck processor available but no azure monitor for refresh',
-                        'refresh_timestamp': time.time(),
-                        'processor_available': True
-                    })
-
-                return jsonify({
-                    'success': False,
-                    'error': 'Precheck engine not available in processor'
-                }), 503
-
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-
-
-
-
         @self.app.route('/api/wiki/ask', methods=['POST'])
-        # async def wiki_ask_question():
-        def wiki_ask_question():
-            """Ask a question to the wiki knowledge base"""
+        def wiki_ask():
             try:
-                data = request.get_json()
-
-                if not data or 'question' not in data:
-                    return jsonify({
-                        "success": False,
-                        "error": "Question is required"
-                    }), 400
-
-                question = data['question']
-                max_tokens = data.get('max_tokens', 1000)
-                include_sources = data.get('include_sources', True)
+                data = request.json
+                question = data.get('question', '')
 
                 if len(question.strip()) < 3:
                     return jsonify({
                         "success": False,
-                        "error": "Question must be at least 3 characters long"
+                        "error": "Question too short"
                     }), 400
 
-                # Process the question using the integrated wiki system
+                # Process question synchronously for API
                 import asyncio
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
                     result = loop.run_until_complete(
-                        self.system.process_wiki_question(question, max_tokens, include_sources)
+                        self.system.process_wiki_question(question)
                     )
                 finally:
                     loop.close()
@@ -5164,1254 +4372,207 @@ class UniversalNeuralAPI:
                 return jsonify(result)
 
             except Exception as e:
-                logger.error(f"Wiki API error: {e}")
                 return jsonify({
                     "success": False,
                     "error": str(e)
                 }), 500
 
-        @self.app.route('/api/wiki/ask', methods=['GET'])
-        #async def wiki_ask_question_get():
-        def wiki_ask_question_get():
-            """Ask a question via GET request"""
-            try:
-                question = request.args.get('q', '').strip()
-                max_tokens = int(request.args.get('max_tokens', 1000))
-                include_sources = request.args.get('include_sources', 'true').lower() == 'true'
-
-                if len(question) < 3:
-                    return jsonify({
-                        "success": False,
-                        "error": "Question parameter 'q' must be at least 3 characters long"
-                    }), 400
-                import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    result = loop.run_until_complete(
-                        self.system.process_wiki_question(question, max_tokens, include_sources)
-                    )
-                finally:
-                    loop.close()
-
-                return jsonify(result)
-
-            except Exception as e:
-                logger.error(f"Wiki API GET error: {e}")
-                return jsonify({
-                    "success": False,
-                    "error": str(e)
-                }), 500
-
-        @self.app.route('/api/wiki/info', methods=['GET'])
-        def wiki_knowledge_base_info():
-            """Get information about the wiki knowledge base"""
-            try:
-                if not universal_system.wiki_kb:
-                    return jsonify({
-                        "success": False,
-                        "error": "Wiki Knowledge Base not available"
-                    })
-
-                info = universal_system.wiki_kb.get_knowledge_base_info()
-                return jsonify({
-                    "success": True,
-                    **info
-                })
-
-            except Exception as e:
-                logger.error(f"Wiki info error: {e}")
-                return jsonify({
-                    "success": False,
-                    "error": str(e)
-                }), 500
-
-        @self.app.route('/api/wiki/health', methods=['GET'])
-        def wiki_health_check():
-            """Check wiki knowledge base health"""
-            try:
-                if not universal_system.wiki_kb:
-                    return jsonify({
-                        "status": "unhealthy",
-                        "message": "Wiki Knowledge Base not initialized",
-                        "initialized": False,
-                        "total_pages": 0
-                    })
-
-                return jsonify({
-                    "status": "healthy" if universal_system.wiki_kb.initialized else "unhealthy",
-                    "initialized": universal_system.wiki_kb.initialized,
-                    "total_pages": len(universal_system.wiki_kb.pages),
-                    "timestamp": datetime.now().isoformat()
-                })
-
-            except Exception as e:
-                return jsonify({
-                    "status": "error",
-                    "error": str(e)
-                }), 500
-
-
-
-
-
-
-
-
+        @self.app.route('/health', methods=['GET'])
+        def health():
+            return jsonify(health_check())
 
         @self.app.route('/metrics', methods=['GET'])
         def metrics():
-            """Enhanced Prometheus metrics endpoint"""
             try:
                 status = self.system.get_system_status()
-
-                # Generate comprehensive Prometheus metrics
                 metrics_lines = [
-                    "# HELP universal_neural_tasks_total Total number of tasks processed",
-                    "# TYPE universal_neural_tasks_total counter",
-                    f"universal_neural_tasks_total {status['performance_metrics']['total_tasks_processed']}",
+                    "# HELP universal_tasks_total Total tasks processed",
+                    "# TYPE universal_tasks_total counter",
+                    f"universal_tasks_total {status['performance_metrics']['total_tasks_processed']}",
                     "",
-                    "# HELP universal_neural_confidence_avg Average confidence score",
-                    "# TYPE universal_neural_confidence_avg gauge",
-                    f"universal_neural_confidence_avg {status['performance_metrics']['average_confidence']}",
+                    "# HELP universal_confidence_avg Average confidence",
+                    "# TYPE universal_confidence_avg gauge",
+                    f"universal_confidence_avg {status['performance_metrics']['average_confidence']}",
                     "",
-                    "# HELP universal_neural_execution_time_avg Average execution time in seconds",
-                    "# TYPE universal_neural_execution_time_avg gauge",
-                    f"universal_neural_execution_time_avg {status['performance_metrics']['average_execution_time']}",
-                    "",
-                    "# HELP universal_neural_system_health Overall system health score",
-                    "# TYPE universal_neural_system_health gauge",
-                    f"universal_neural_system_health {status['system_health']['overall_score']}",
-                    "",
-                    "# HELP universal_neural_active_tasks Number of active tasks",
-                    "# TYPE universal_neural_active_tasks gauge",
-                    f"universal_neural_active_tasks {status['active_tasks']}",
-                    "",
-                    "# HELP universal_neural_domains_mastered Number of domains mastered",
-                    "# TYPE universal_neural_domains_mastered gauge",
-                    f"universal_neural_domains_mastered {len(status['performance_metrics']['domains_mastered'])}",
-                    "",
-                    "# HELP universal_neural_uptime_hours System uptime in hours",
-                    "# TYPE universal_neural_uptime_hours gauge",
-                    f"universal_neural_uptime_hours {status['uptime_hours']}",
+                    "# HELP universal_health_score System health score",
+                    "# TYPE universal_health_score gauge",
+                    f"universal_health_score {status['system_health']['overall_score']}"
                 ]
-
-                # Add domain expertise metrics
-                for domain, expertise in status['domain_expertise'].items():
-                    if expertise > 0.01:  # Only include domains with some expertise
-                        metrics_lines.append(f'universal_neural_domain_expertise{{domain="{domain}"}} {expertise}')
-
-                return '\n'.join(metrics_lines), 200, {'Content-Type': 'text/plain; charset=utf-8'}
-
+                return '\n'.join(metrics_lines), 200, {'Content-Type': 'text/plain'}
             except Exception as e:
-                logger.error(f"Failed to generate metrics: {e}")
-                return f"# Error generating metrics: {e}\n", 500, {'Content-Type': 'text/plain'}
+                return f"# Error: {e}\n", 500, {'Content-Type': 'text/plain'}
 
-        @self.app.route('/api/config', methods=['GET'])
-        def get_config():
-            """Get integration configuration"""
-            try:
-                from config.integrations import IntegrationConfig
-                config = IntegrationConfig('config/integrations.yaml')
+# Configuration functions
+def get_env_int(key: str, default: int) -> int:
+    """Get environment variable as integer"""
+    try:
+        return int(os.getenv(key, default))
+    except (ValueError, TypeError):
+        return default
 
-                return jsonify({
-                    'prometheus': config.get_prometheus_config(),
-                    'kafka': config.get_kafka_config(),
-                    'universal_neural': config.get_universal_neural_config(),
-                    'webhooks': config.get_webhooks_config()
-                })
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
+def get_env_bool(key: str, default: bool) -> bool:
+    """Get environment variable as boolean"""
+    return os.getenv(key, str(default)).lower() in ('true', '1', 'yes', 'on')
 
-
-        @self.app.route('/api/database/status', methods=['GET'])
-        def database_status():
-            """Get comprehensive database status and configuration validation"""
-            try:
-                status = self.system.get_database_status()
-
-                # Add configuration validation
-                if self.system.database:
-                    validation = self.system.database.validate_configuration()
-                    status['configuration_validation'] = validation
-
-                return jsonify(status)
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
-
-        @self.app.route('/api/database/test', methods=['POST'])
-        def test_database():
-            """Test database functionality"""
-            try:
-                if not self.system.database:
-                    return jsonify({'success': False, 'error': 'Database not available'}), 400
-
-                # Test connection
-                connection_ok = self.system.database.test_connection()
-
-                # Test write operation
-                test_task = UniversalTask(
-                    task_id=f"test_{int(time.time())}",
-                    domain=DomainType.GENERIC,
-                    task_type=TaskType.CLASSIFICATION,
-                    input_data="test_data"
-                )
-
-                test_solution = UniversalSolution(
-                    task_id=test_task.task_id,
-                    solution="test_solution",
-                    confidence=0.95,
-                    reasoning="Database test",
-                    execution_time=0.001,
-                    model_used="test_model"
-                )
-
-                # Save test data
-                self.system.database.save_task_result(test_task, test_solution)
-
-                # Verify it was saved
-                task_count = self.system.database.get_task_count()
-
-                return jsonify({
-                    'success': True,
-                    'connection_test': connection_ok,
-                    'write_test': True,
-                    'total_tasks': task_count,
-                    'test_task_id': test_task.task_id
-                })
-
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-
-        @self.app.route('/api/database/export', methods=['POST'])
-        def export_database():
-            """Export database to CSV"""
-            try:
-                if not self.system.database:
-                    return jsonify({'success': False, 'error': 'Database not available'}), 400
-
-                timestamp = int(time.time())
-                filepath = f"exports/tasks_export_{timestamp}.csv"
-                os.makedirs("exports", exist_ok=True)
-
-                success = self.system.database.export_tasks_to_csv(filepath)
-
-                return jsonify({
-                    'success': success,
-                    'filepath': filepath,
-                    'message': f'Database exported to {filepath}' if success else 'Export failed'
-                })
-
-            except Exception as e:
-                return jsonify({'success': False, 'error': str(e)}), 500
-
-        @self.app.route('/api/learning_insights', methods=['GET'])
-        def learning_insights():
-            try:
-                insights = self.system.learning_engine.get_learning_insights()
-                return jsonify(insights)
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
-
-        @self.app.route('/api/save_state', methods=['POST'])
-        def save_state():
-            try:
-                data = request.json
-                filepath = data.get('filepath', f'models/universal_system_state_{int(time.time())}.json')
-                success = self.system.save_system_state(filepath)
-                return jsonify({'success': success, 'filepath': filepath})
-            except Exception as e:
-                return jsonify({'success': False, 'error': str(e)}), 500
-
-        def start_server(self, service_name="AI_ENGINE_API"):
-            """Start the API server using port registry configuration"""
-            if self.app:
-                try:
-                    from config.port_registry import port_registry
-                    service = port_registry.get_service(service_name)
-                    if service:
-                        logger.info(f"🌐 Starting API server on {service.address}")
-                        self.app.run(host=service.host, port=service.port, debug=False)
-                    else:
-                        logger.error(f"❌ Service {service_name} not found in /etc/port-registry.conf")
-                        logger.error("   Add AI_ENGINE_API configuration to the registry file")
-                except ImportError:
-                    logger.error("❌ Port registry not available - cannot start API server")
-            else:
-                logger.error("Flask not available - cannot start API server")
-
-async def run_universal_system_demo(universal_system: WorldClassUniversalNeuralSystem):
-# def run_universal_system_demo(universal_system: WorldClassUniversalNeuralSystem):
-    """Run a comprehensive demo of the universal system"""
-    logger.info("🚀 Starting Universal Neural System Demo")
-
-    # Create sample tasks
-    sample_tasks = create_sample_tasks()
-
-    logger.info(f"📋 Processing {len(sample_tasks)} sample tasks across different domains")
-
-    results = []
-    for task in sample_tasks:
-        logger.info(f"🎯 Processing {task.task_id} - {task.domain.value} - {task.task_type.value}")
-
-        try:
-            solution = await universal_system.process_universal_task(task)
-            results.append({
-                'task': task,
-                'solution': solution,
-                'success': solution.confidence > 0.5
-            })
-
-            logger.info(f"✅ {task.task_id} completed - Confidence: {solution.confidence:.3f}")
-
-        except Exception as e:
-            logger.error(f"❌ {task.task_id} failed: {e}")
-            results.append({
-                'task': task,
-                'solution': None,
-                'success': False,
-                'error': str(e)
-            })
-
-    # Display results summary
-    successful_tasks = sum(1 for r in results if r['success'])
-    logger.info("=" * 80)
-    logger.info("📊 UNIVERSAL SYSTEM DEMO RESULTS")
-    logger.info(f"✅ Successful tasks: {successful_tasks}/{len(sample_tasks)}")
-    logger.info(f"📈 Success rate: {successful_tasks/len(sample_tasks)*100:.1f}%")
-
-    # Display domain performance
-    domain_performance = {}
-    for result in results:
-        domain = result['task'].domain.value
-        if domain not in domain_performance:
-            domain_performance[domain] = {'total': 0, 'successful': 0}
-        domain_performance[domain]['total'] += 1
-        if result['success']:
-            domain_performance[domain]['successful'] += 1
-
-    logger.info("\n🎯 DOMAIN PERFORMANCE:")
-    for domain, perf in domain_performance.items():
-        success_rate = perf['successful'] / perf['total'] * 100
-        logger.info(f"  {domain}: {perf['successful']}/{perf['total']} ({success_rate:.1f}%)")
-
-    # Display system status
-    status = universal_system.get_system_status()
-    logger.info(f"\n🧠 SYSTEM STATUS:")
-    logger.info(f"  Total tasks processed: {status['performance_metrics']['total_tasks_processed']}")
-    logger.info(f"  Average confidence: {status['performance_metrics']['average_confidence']:.3f}")
-    logger.info(f"  Average execution time: {status['performance_metrics']['average_execution_time']:.3f}s")
-    logger.info(f"  Domains mastered: {len(status['performance_metrics']['domains_mastered'])}")
-    logger.info(f"  System health score: {status['system_health']['overall_score']:.3f}")
-
-    logger.info("=" * 80)
-
-    return results
+def get_default_host() -> str:
+    """Get default host"""
+    return os.getenv('DEFAULT_HOST', 'localhost')
 
 
-def setup_api_server(universal_system):
-    """Setup API server using port registry configuration"""
-    if FLASK_AVAILABLE:
-        try:
-            from config.port_registry import port_registry
+# Main function
+def main():
+    """Main function"""
+    try:
+        logger.info("🚀 Starting Universal Neural System...")
+
+        # Setup directories
+        setup_directories()
+
+        # Initialize system
+        universal_system = WorldClassUniversalNeuralSystem()
+
+        # Setup API server
+        api_server = None
+        if FLASK_AVAILABLE:
             api_server = UniversalNeuralAPI(universal_system)
 
-            # Use dedicated API service configuration
-            api_service = port_registry.get_service("AI_ENGINE_API")
-            if api_service:
-                def start_api():
-                    try:
-                        api_server.start_server("AI_ENGINE_API")
-                    except Exception as e:
-                        logger.error(f"API server failed: {e}")
-
-                api_thread = threading.Thread(target=start_api, daemon=True)
-                api_thread.start()
-                logger.info(f"🌐 Universal Neural API: {api_service.url}")
-            else:
-                logger.error("❌ AI_ENGINE_API service not configured in /etc/port-registry.conf")
-                logger.error("   Add AI_ENGINE_API configuration to the registry file")
-
-        except Exception as e:
-            logger.error(f"Failed to start API server: {e}")
-    else:
-        logger.warning("⚠️ Flask not available - API server cannot be started")
-
-def setup_prometheus_alerts(universal_system):
-    """Setup Prometheus alert receiver using port registry configuration"""
-    prometheus_alert_receiver_class = initialize_prometheus_integration()
-    if prometheus_alert_receiver_class:
-        try:
-            from config.port_registry import port_registry
-            alert_service = port_registry.get_service("ALERT_PROCESSOR")
-            if alert_service:
-                prometheus_alert_receiver = prometheus_alert_receiver_class(
-                    universal_system=universal_system
-                )
-
-                def start_alert_receiver():
-                    try:
-                        prometheus_alert_receiver.start_server(
-                            host=alert_service.host,
-                            port=alert_service.port
-                        )
-                    except Exception as e:
-                        logger.error(f"Prometheus alert receiver failed: {e}")
-
-                alert_receiver_thread = threading.Thread(target=start_alert_receiver, daemon=True)
-                alert_receiver_thread.start()
-                logger.info(f"📨 Prometheus Alert Receiver: {alert_service.url}")
-            else:
-                logger.error("❌ ALERT_PROCESSOR service not configured in /etc/port-registry.conf")
-                logger.error("   Add ALERT_PROCESSOR configuration to the registry file")
-        except Exception as e:
-            logger.error(f"Failed to start Prometheus Alert Receiver: {e}")
-    else:
-        logger.info("ℹ️ Prometheus alert receiver not available")
-
-def setup_universal_monitoring(universal_system: WorldClassUniversalNeuralSystem):
-    """Setup monitoring for the universal system using port registry configuration"""
-    monitoring_components = {}
-    logger.info("🔧 Setting up monitoring components from /etc/port-registry.conf...")
-
-    # Prometheus Metrics Setup
-    try:
-        from monitoring.prometheus_metrics_exporter import PrometheusMetricsExporter
-        from config.port_registry import port_registry
-
-        metrics_service = port_registry.get_service("PROMETHEUS_METRICS")
-        if not metrics_service:
-            logger.error("❌ PROMETHEUS_METRICS service not found in /etc/port-registry.conf")
-            logger.error("   Add PROMETHEUS_METRICS configuration to the registry file")
-        else:
-            prometheus_exporter = PrometheusMetricsExporter(port=metrics_service.port)
-            if prometheus_exporter.start_server():
-                logger.info(f"📊 Prometheus metrics exporter started: {metrics_service.url}")
-                logger.info(f"📊 Metrics endpoint: {metrics_service.url}/metrics")
-
-                def update_universal_metrics():
-                    while prometheus_exporter.running:
-                        try:
-                            prometheus_exporter.update_metrics(universal_system)
-                            time.sleep(15)
-                        except Exception as e:
-                            logger.warning(f"Failed to update universal metrics: {e}")
-                            time.sleep(30)
-
-                metrics_thread = threading.Thread(target=update_universal_metrics, daemon=True)
-                metrics_thread.start()
-                monitoring_components['prometheus'] = prometheus_exporter
-                logger.info("✅ Prometheus metrics integration active")
-            else:
-                logger.error(f"❌ Failed to start Prometheus metrics on {metrics_service.address}")
-
-    except ImportError as e:
-        logger.warning(f"Prometheus metrics not available: {e}")
-        logger.info("   Install with: pip install prometheus_client")
-    except Exception as e:
-        logger.error(f"Failed to setup Prometheus monitoring: {e}")
-
-    # Grafana Integration Setup
-    try:
-        from config.integrations.grafana_integration import GrafanaIntegration
-        from config.port_registry import port_registry
-
-        grafana_service = port_registry.get_service("GRAFANA")
-        if not grafana_service:
-            logger.error("❌ GRAFANA service not found in /etc/port-registry.conf")
-            logger.error("   Add GRAFANA configuration to the registry file")
-        else:
-            grafana_api_key = os.getenv('GRAFANA_API_KEY', '')
-            if grafana_api_key:
-                grafana = GrafanaIntegration(url=grafana_service.url, api_key=grafana_api_key)
-                logger.info(f"🔑 Using Grafana API key for authentication")
-            else:
-                grafana = GrafanaIntegration(url=grafana_service.url)
-                logger.info(f"🔓 Using Grafana without API key (public access)")
-
-            try:
-                if grafana.test_connection():
-                    logger.info(f"🎯 Grafana integration active: {grafana_service.url}")
-                    monitoring_components['grafana'] = grafana
-                else:
-                    logger.warning(f"🎯 Grafana connection test failed: {grafana_service.url}")
-                    logger.warning("   This is normal if Grafana requires authentication")
-                    logger.info("   System will continue without Grafana integration")
-            except Exception as grafana_error:
-                logger.warning(f"🎯 Grafana connection failed: {str(grafana_error)[:100]}...")
-                logger.info("   System will continue without Grafana integration")
-                logger.info("   To fix: Configure GRAFANA_API_KEY in .env or check Grafana settings")
-            if grafana.test_connection():
-                logger.info(f"🎯 Grafana integration active: {grafana_service.url}")
-                monitoring_components['grafana'] = grafana
-            else:
-                logger.warning(f"🎯 Grafana connection test failed: {grafana_service.url}")
-                logger.warning("   Check if Grafana is running and accessible")
-
-    except ImportError as e:
-        logger.warning(f"Grafana integration not available: {e}")
-        logger.info("   Install Grafana integration dependencies if needed")
-    except Exception as e:
-        logger.warning(f"Grafana integration failed: {e}")
-
-    # Summary of monitoring setup
-    active_components = len(monitoring_components)
-    if active_components > 0:
-        logger.info(f"✅ Monitoring setup complete: {active_components} components active")
-        for component_name in monitoring_components.keys():
-            logger.info(f"   📊 {component_name.title()} monitoring enabled")
-    else:
-        logger.warning("⚠️ No monitoring components activated")
-        logger.info("   Check /etc/port-registry.conf for PROMETHEUS_METRICS and GRAFANA services")
-
-    return monitoring_components
-
-def display_system_information(universal_system, monitoring_components):
-    """Display system information using only registry values"""
-    from config.port_registry import port_registry
-
-    logger.info("=" * 100)
-    logger.info("🌟 INTEL UNIVERSAL NEURAL SYSTEM READY!")
-    logger.info(f"🧠 System ID: {universal_system.system_id}")
-    logger.info(f"🌍 Environment: {port_registry.get_environment()}")
-
-    # Core AI services
-    ai_main_service = port_registry.get_service("AI_ENGINE_MAIN")
-    ai_api_service = port_registry.get_service("AI_ENGINE_API")
-
-    if ai_main_service:
-        logger.info(f"🧠 Main AI Engine: {ai_main_service.url}")
-    if ai_api_service:
-        logger.info(f"🌐 API Endpoint: {ai_api_service.url}/api/process_task")
-        logger.info(f"📊 System Status: {ai_api_service.url}/api/system_status")
-
-    logger.info(f"🎯 Supported Domains: {len(DomainType)} domains")
-    logger.info(f"🔧 Supported Task Types: {len(TaskType)} task types")
-
-    # Monitoring services
-    if monitoring_components.get('prometheus'):
-        prometheus_service = port_registry.get_service("PROMETHEUS")
-        metrics_service = port_registry.get_service("PROMETHEUS_METRICS")
-        alertmanager_service = port_registry.get_service("ALERTMANAGER")
-
-        if prometheus_service:
-            logger.info(f"📈 Prometheus Server: {prometheus_service.url}")
-        if metrics_service:
-            logger.info(f"📈 Prometheus Metrics: {metrics_service.url}/metrics")
-        if alertmanager_service:
-            logger.info(f"🚨 AlertManager: {alertmanager_service.url}")
-
-    if monitoring_components.get('grafana'):
-        grafana_service = port_registry.get_service("GRAFANA")
-        if grafana_service:
-            logger.info(f"📊 Grafana Dashboard: {grafana_service.url}")
-
-    # Display other configured services
-    service_display_map = {
-        "ALERT_PROCESSOR": "📨 Alert Processor",
-        "ENHANCED_DASHBOARD": "🎛️ Enhanced Dashboard",
-        "BASIC_DASHBOARD": "🎛️ Basic Dashboard",
-        "DOMAIN_ADAPTER": "🧠 Domain Adapter",
-        "LEARNING_ENGINE": "📚 Learning Engine",
-        "AI_DIRECT_WEBHOOK": "🔗 Direct Webhook",
-        "AI_KAFKA_WEBHOOK": "📡 Kafka Webhook",
-        "AI_WEBSOCKET_CLIENT": "🔌 WebSocket Client"
-    }
-
-    for service_name, display_name in service_display_map.items():
-        service = port_registry.get_service(service_name)
-        if service:
-            logger.info(f"{display_name}: {service.url}")
-
-    logger.info("=" * 100)
-
-def setup_github_service():
-    """Setup GitHub service if enabled with comprehensive error handling and validation"""
-    try:
-        # Check if GitHub integration is enabled via environment variable
-        github_enabled = os.getenv('GITHUB_INTEGRATION_ENABLED', 'true').lower() == 'true'
-        if not github_enabled:
-            logger.info("ℹ️ GitHub integration disabled via environment variable")
-            return None
-
-        # Check for required GitHub configuration
-        github_token = os.getenv('GITHUB_TOKEN')
-        if not github_token:
-            logger.warning("⚠️ GITHUB_TOKEN not found in environment variables")
-            logger.info("   Set GITHUB_TOKEN to enable GitHub integration")
-            return None
-
-        # Try to import GitHub service with detailed error handling
-        try:
-            from services.github_service import GitHubIntegrationService
-            logger.debug("✅ GitHub service module imported successfully")
-        except ImportError as e:
-            logger.warning(f"GitHub service module not available: {e}")
-            logger.info("   Create services/github_service.py to enable GitHub integration")
-            logger.info("   Example: services/github_service.py should contain GitHubIntegrationService class")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error importing GitHub service: {e}")
-            return None
-
-        # Initialize GitHub service with error handling
-        try:
-            github_service = GitHubIntegrationService()
-            logger.debug("🔧 GitHub service instance created")
-        except Exception as e:
-            logger.error(f"Failed to create GitHub service instance: {e}")
-            logger.info("   Check GitHub service configuration and dependencies")
-            return None
-
-        # Validate GitHub service configuration
-        try:
-            if not hasattr(github_service, 'config'):
-                logger.warning("⚠️ GitHub service missing configuration attribute")
-                return None
-
-            service_config = github_service.config.get('github_integration', {})
-            if not service_config.get('enabled', False):
-                logger.info("ℹ️ GitHub integration disabled in service configuration")
-                logger.info("   Enable in configuration file or check service setup")
-                return None
-
-            # Validate repositories attribute
-            if not hasattr(github_service, 'repositories'):
-                logger.warning("⚠️ GitHub service missing repositories attribute")
-                github_service.repositories = []  # Initialize empty list as fallback
-
-            repo_count = len(github_service.repositories) if github_service.repositories else 0
-
-            logger.info("✅ GitHub service initialized successfully")
-            logger.info(f"📊 Monitoring {repo_count} repositories")
-
-            # Log additional service details if available
-            if hasattr(github_service, 'github_client'):
-                logger.info("🔗 GitHub API client connected")
-
-            # Test GitHub service connectivity (optional)
-            try:
-                if hasattr(github_service, 'test_connection'):
-                    connection_test = github_service.test_connection()
-                    if connection_test:
-                        logger.info("🌐 GitHub API connectivity verified")
-                    else:
-                        logger.warning("⚠️ GitHub API connectivity test failed")
-            except Exception as test_error:
-                logger.warning(f"GitHub connectivity test failed: {test_error}")
-
-            return github_service
-
-        except AttributeError as e:
-            logger.error(f"GitHub service configuration error: {e}")
-            logger.info("   Check GitHubIntegrationService class implementation")
-            return None
-        except Exception as e:
-            logger.error(f"GitHub service validation failed: {e}")
-            return None
-
-    except ImportError as e:
-        logger.warning(f"GitHub service dependencies not available: {e}")
-        logger.info("   Install required packages: pip install PyGithub requests")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected error in GitHub service setup: {e}")
-        import traceback
-        logger.debug(f"Full traceback: {traceback.format_exc()}")
-        return None
-
-def validate_github_service(github_service):
-    """Validate GitHub service functionality"""
-    if not github_service:
-        return False
-
-    try:
-        # Check required methods
-        required_methods = ['get_repositories', 'monitor_repository', 'process_webhook']
-        missing_methods = []
-
-        for method in required_methods:
-            if not hasattr(github_service, method):
-                missing_methods.append(method)
-
-        if missing_methods:
-            logger.warning(f"⚠️ GitHub service missing methods: {missing_methods}")
-            return False
-
-        # Check configuration
-        if not hasattr(github_service, 'config'):
-            logger.warning("⚠️ GitHub service missing configuration")
-            return False
-
-        logger.info("✅ GitHub service validation passed")
-        return True
-
-    except Exception as e:
-        logger.error(f"GitHub service validation failed: {e}")
-        return False
-
-def setup_github_integration_with_universal_system(universal_system):
-    """Integrate GitHub service with the universal system"""
-    try:
-        github_service = setup_github_service()
-
-        if not github_service:
-            logger.info("ℹ️ Continuing without GitHub integration")
-            return None
-
-        # Validate the service
-        if not validate_github_service(github_service):
-            logger.warning("⚠️ GitHub service validation failed - continuing without integration")
-            return None
-
-        # Attach to universal system
-        universal_system.github_service = github_service
-
-        # Setup GitHub-specific task processing if available
-        if hasattr(github_service, 'setup_ai_integration'):
-            try:
-                github_service.setup_ai_integration(universal_system)
-                logger.info("🔗 GitHub-AI integration configured")
-            except Exception as e:
-                logger.warning(f"GitHub-AI integration setup failed: {e}")
-
-        # Setup webhook endpoints if API server is available
-        if hasattr(universal_system, 'api_server') and universal_system.api_server:
-            try:
-                setup_github_webhook_endpoints(universal_system.api_server, github_service)
-                logger.info("🔗 GitHub webhook endpoints configured")
-            except Exception as e:
-                logger.warning(f"GitHub webhook setup failed: {e}")
-
-        logger.info(f"🎉 GitHub integration active with {len(github_service.repositories)} repositories")
-        return github_service
-
-    except Exception as e:
-        logger.error(f"GitHub integration setup failed: {e}")
-        return None
-
-def setup_github_webhook_endpoints(api_server, github_service):
-    """Setup GitHub webhook endpoints in the API server"""
-    if not api_server or not api_server.app:
-        return
-
-    from flask import request, jsonify
-
-    @api_server.app.route('/api/github/webhook', methods=['POST'])
-    def github_webhook():
-        """Handle GitHub webhook events"""
-        try:
-            # Verify webhook signature if configured
-            signature = request.headers.get('X-Hub-Signature-256')
-            if signature and hasattr(github_service, 'verify_webhook_signature'):
-                if not github_service.verify_webhook_signature(request.data, signature):
-                    return jsonify({'error': 'Invalid signature'}), 401
-
-            # Process webhook event
-            event_type = request.headers.get('X-GitHub-Event')
-            payload = request.json
-
-            if hasattr(github_service, 'process_webhook'):
-                result = github_service.process_webhook(event_type, payload)
-                return jsonify({'success': True, 'result': result})
-            else:
-                return jsonify({'success': False, 'error': 'Webhook processing not available'}), 501
-
-        except Exception as e:
-            logger.error(f"GitHub webhook processing failed: {e}")
-            return jsonify({'success': False, 'error': str(e)}), 500
-
-    @api_server.app.route('/api/github/repositories', methods=['GET'])
-    def github_repositories():
-        """Get monitored GitHub repositories"""
-        try:
-            if hasattr(github_service, 'get_repositories'):
-                repos = github_service.get_repositories()
-                return jsonify({'repositories': repos})
-            else:
-                return jsonify({'repositories': github_service.repositories or []})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @api_server.app.route('/api/github/status', methods=['GET'])
-    def github_status():
-        """Get GitHub integration status"""
-        try:
-            status = {
-                'enabled': True,
-                'repositories_count': len(github_service.repositories) if github_service.repositories else 0,
-                'api_connected': hasattr(github_service, 'github_client') and github_service.github_client is not None
-            }
-
-            if hasattr(github_service, 'get_status'):
-                status.update(github_service.get_status())
-
-            return jsonify(status)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-
-def test_database_connection(universal_system):
-    """Test database connection and functionality"""
-    try:
-        if not universal_system.database:
-            logger.warning("⚠️ No database available for testing")
-            return False
-
-        # Test connection
-        connection_ok = universal_system.database.test_connection()
-        if not connection_ok:
-            logger.warning("⚠️ Database connection test failed")
-            return False
-
-        # Test basic operations
-        task_count = universal_system.database.get_task_count()
-        logger.info(f"📊 Database test passed - {task_count} existing tasks")
-        return True
-
-    except Exception as e:
-        logger.error(f"❌ Database test failed: {e}")
-        return False
-
-
-
-
-
-
-
-
-
-
-
-
-
-def main_universal_neural_system():
-    """Main function for the World-Class Universal Neural System"""
-    global universal_system  # Make it accessible for signal handler
-
-    try:
-        logger.info("🚀 Starting Intel Universal Neural System...")
-
-        # Check precheck manager status
-        try:
-            if 'precheck_manager' in globals() and precheck_manager.is_available():
-                logger.info("✅ Precheck manager available for main system")
-            else:
-                logger.info("ℹ️ Precheck manager will be initialized with Universal System")
-        except Exception as e:
-            logger.warning(f"⚠️ Precheck manager check: {e}")
-
-        # Create directories first
-        os.makedirs("logs", exist_ok=True)
-        os.makedirs("models", exist_ok=True)
-        os.makedirs("knowledge_base", exist_ok=True)
-        os.makedirs("exports", exist_ok=True)
-
-        print("\n" + "="*100)
-        print("🌟 INTEL UNIVERSAL NEURAL NETWORK SYSTEM")
-        print("   🧠 Advanced AI System Capable of Handling ANY Domain")
-        print("   🚀 Deep Learning • Transfer Learning • Meta Learning • Continual Learning")
-        print("   🎯 Universal Problem Solver with Domain Adaptation")
-        print("   🔬 Self-Learning and Self-Improving Neural Architecture")
-        print("="*100)
-
-        # Initialize the Universal Neural System (only once)
-        universal_system = WorldClassUniversalNeuralSystem()
-        logger.info("✅ Intel Universal Neural System initialized")
-
-        # Start cleanup timer
-        def cleanup_timer():
-            while True:
-                time.sleep(300)  # Every 5 minutes
+            def start_api():
                 try:
-                    universal_system.cleanup_resources()
-                except Exception as e:
-                    logger.error(f"Cleanup failed: {e}")
+                    # Get API server configuration with fallbacks
+                    if PORTS_AVAILABLE:
+                        # Try to get AI_ENGINE_API service
+                        api_service = port_registry.get_service('AI_ENGINE_API')
+                        if api_service:
+                            host, port = api_service.host, api_service.port
+                        else:
+                            # Fallback: try to use AI_ENGINE_MAIN with different port
+                            main_service = port_registry.get_service('AI_ENGINE_MAIN')
+                            if main_service:
+                                host = main_service.host
+                                port = 8090  # Default API port
+                            else:
+                                host, port = get_default_host(), 8090
+                    else:
+                        # Use fallback configuration
+                        host = get_default_host()
+                        port = PORTS.get('AI_ENGINE_API', 8090)
 
-        threading.Thread(target=cleanup_timer, daemon=True).start()
+                    logger.info(f"🌐 Starting API server on {host}:{port}")
+                    api_server.app.run(host=host, port=port, debug=False, threaded=True)
 
-        # Test database connection
-        db_test_result = test_database_connection(universal_system)
-        if db_test_result:
-            logger.info("✅ Database integration verified")
-        else:
-            logger.warning("⚠️ Database integration issues detected")
-
-        # Setup GitHub service integration
-        try:
-            github_service = setup_github_integration_with_universal_system(universal_system)
-            if github_service:
-                logger.info("🔗 GitHub integration fully configured")
-
-                # Start GitHub monitoring if available
-                if hasattr(github_service, 'start_monitoring'):
+                except KeyError as e:
+                    logger.error(f"API server configuration error: {e}")
+                    logger.info("🔄 Trying fallback API configuration...")
                     try:
-                        github_monitoring_thread = threading.Thread(
-                            target=github_service.start_monitoring,
-                            daemon=True
-                        )
-                        github_monitoring_thread.start()
-                        logger.info("📡 GitHub monitoring started")
-                    except Exception as e:
-                        logger.warning(f"GitHub monitoring startup failed: {e}")
-            else:
-                logger.info("ℹ️ Continuing without GitHub integration")
-        except Exception as e:
-            logger.warning(f"GitHub integration failed: {e}")
+                        fallback_host = get_default_host()
+                        fallback_port = 8090
+                        logger.info(f"🌐 Starting API server on fallback {fallback_host}:{fallback_port}")
+                        api_server.app.run(host=fallback_host, port=fallback_port, debug=False, threaded=True)
+                    except Exception as fallback_error:
+                        logger.error(f"Fallback API server also failed: {fallback_error}")
 
-        # Try to load previous state
-        state_file = "models/universal_system_state.json"
-        if os.path.exists(state_file):
+                except Exception as e:
+                    logger.error(f"API server failed: {e}")
+
+            api_thread = threading.Thread(target=start_api, daemon=True)
+            api_thread.start()
+
+        # Display system info
+        logger.info("=" * 80)
+        logger.info("🌟 UNIVERSAL NEURAL SYSTEM READY")
+        logger.info(f"🧠 System ID: {universal_system.system_id}")
+
+        # Display API endpoint with proper error handling
+        if api_server:
             try:
-                if universal_system.load_system_state(state_file):
-                    logger.info("📂 Previous system state loaded successfully")
+                if PORTS_AVAILABLE:
+                    api_service = port_registry.get_service('AI_ENGINE_API')
+                    if api_service:
+                        logger.info(f"🌐 API: {api_service.url}")
+                    else:
+                        main_service = port_registry.get_service('AI_ENGINE_MAIN')
+                        if main_service:
+                            logger.info(f"🌐 API: http://{main_service.host}:8090")
+                        else:
+                            logger.info(f"🌐 API: http://{get_default_host()}:8090")
+                else:
+                    api_port = PORTS.get('AI_ENGINE_API', 8090)
+                    logger.info(f"🌐 API: http://{get_default_host()}:{api_port}")
             except Exception as e:
-                logger.warning(f"Failed to load previous state: {e}")
+                logger.warning(f"Could not determine API URL: {e}")
+                logger.info(f"🌐 API: http://{get_default_host()}:8090 (fallback)")
 
-        # Setup monitoring and services
-        try:
-            monitoring_components = setup_universal_monitoring(universal_system)
-            setup_prometheus_alerts(universal_system)
-            setup_api_server(universal_system)
+        # Display service registry information
+        if PORTS_AVAILABLE:
+            logger.info("🔗 Service Registry:")
+            logger.info(f"   📁 Config: {port_registry.registry_file}")
+            logger.info(f"   🌍 Environment: {port_registry.get_environment()}")
+            logger.info(f"   📊 Services: {len(port_registry.services)}")
 
-            # Display system information
-            display_system_information(universal_system, monitoring_components)
-        except Exception as e:
-            logger.warning(f"Monitoring setup failed: {e}")
+            # Show key services
+            key_services = ['AI_ENGINE_MAIN', 'PROMETHEUS', 'GRAFANA', 'ENHANCED_DASHBOARD']
+            for service_name in key_services:
+                service = port_registry.get_service(service_name)
+                if service:
+                    logger.info(f"   🎯 {service_name}: {service.url}")
+        else:
+            logger.info("🔗 Using Fallback Configuration")
+            for service_name, port in PORTS.items():
+                if service_name in ['AI_ENGINE_MAIN', 'AI_ENGINE_API', 'PROMETHEUS', 'GRAFANA']:
+                    logger.info(f"   🎯 {service_name}: http://localhost:{port}")
 
-        # Define helper functions for continuous learning
-        def get_compatible_task_pair():
-            """Generate compatible domain and task type pairs"""
-            import random
+        logger.info("=" * 80)
 
-            domain_task_mapping = {
-                DomainType.PRECHECK_VALIDATION: [
-                    TaskType.WAIVER_DECISION,
-                    TaskType.EXCEPTION_ROUTING,
-                    TaskType.COMPLIANCE_VALIDATION,
-                    TaskType.RISK_ASSESSMENT,
-                    TaskType.APPROVAL_PREDICTION,
-                    TaskType.PRECHECK_ANALYSIS,
-                    TaskType.CLASSIFICATION,
-                    TaskType.DECISION_SUPPORT
-                ],
-                DomainType.INFRASTRUCTURE: [
-                    TaskType.ANOMALY_DETECTION,
-                    TaskType.RESOURCE_OPTIMIZATION,
-                    TaskType.MONITORING,
-                    TaskType.CLASSIFICATION,
-                    TaskType.TIME_SERIES_FORECASTING,
-                    TaskType.CONTROL_SYSTEMS
-                ],
-                DomainType.DEVOPS: [
-                    TaskType.AUTOMATION,
-                    TaskType.MONITORING,
-                    TaskType.ANOMALY_DETECTION,
-                    TaskType.PATTERN_RECOGNITION,
-                    TaskType.DECISION_SUPPORT
-                ],
-                DomainType.BUILD_AUTOMATION: [
-                    TaskType.ANOMALY_DETECTION,
-                    TaskType.PATTERN_RECOGNITION,
-                    TaskType.CLASSIFICATION,
-                    TaskType.DECISION_SUPPORT,
-                    TaskType.AUTOMATION
-                ],
-                DomainType.SOFTWARE_QUALITY: [
-                    TaskType.CLASSIFICATION,
-                    TaskType.PATTERN_RECOGNITION,
-                    TaskType.ANOMALY_DETECTION,
-                    TaskType.DECISION_SUPPORT
-                ],
-                DomainType.COMPLIANCE_MANAGEMENT: [
-                    TaskType.COMPLIANCE_VALIDATION,
-                    TaskType.RISK_ASSESSMENT,
-                    TaskType.CLASSIFICATION,
-                    TaskType.DECISION_SUPPORT
-                ],
-                DomainType.FINANCE: [
-                    TaskType.TIME_SERIES_FORECASTING,
-                    TaskType.REGRESSION,
-                    TaskType.CLASSIFICATION,
-                    TaskType.RISK_ASSESSMENT,
-                    TaskType.ANOMALY_DETECTION
-                ],
-                DomainType.HEALTHCARE: [
-                    TaskType.CLASSIFICATION,
-                    TaskType.ANOMALY_DETECTION,
-                    TaskType.PATTERN_RECOGNITION,
-                    TaskType.DECISION_SUPPORT
-                ],
-                DomainType.NATURAL_LANGUAGE: [
-                    TaskType.SENTIMENT_ANALYSIS,
-                    TaskType.TEXT_GENERATION,
-                    TaskType.CLASSIFICATION,
-                    TaskType.NATURAL_LANGUAGE_PROCESSING
-                ],
-                DomainType.COMPUTER_VISION: [
-                    TaskType.CLASSIFICATION,
-                    TaskType.PATTERN_RECOGNITION,
-                    TaskType.IMAGE_PROCESSING,
-                    TaskType.ANOMALY_DETECTION
-                ],
-                DomainType.MANUFACTURING: [
-                    TaskType.ANOMALY_DETECTION,
-                    TaskType.CLASSIFICATION,
-                    TaskType.CONTROL_SYSTEMS,
-                    TaskType.MONITORING
-                ]
-            }
-
-            # Select a random domain
-            domain = random.choice(list(domain_task_mapping.keys()))
-            # Select a compatible task type for that domain
-            compatible_tasks = domain_task_mapping[domain]
-            task_type = random.choice(compatible_tasks)
-            return domain, task_type
-
-        def generate_domain_specific_data(domain, task_type):
-            """Generate realistic input data for domain-task combinations"""
-            import random
-
-            if domain == DomainType.PRECHECK_VALIDATION:
-                return {
-                    'test_coverage': random.uniform(0.6, 0.95),
-                    'failed_tests': random.randint(0, 8),
-                    'security_issues': random.randint(0, 3),
-                    'build_id': f'BUILD-{random.randint(1000, 9999)}',
-                    'deployment_target': random.choice(['staging', 'production', 'dev']),
-                    'risk_factors': random.sample(['new_feature', 'database_migration', 'api_changes', 'config_update'],
-                                                random.randint(0, 3))
-                }
-            elif domain == DomainType.INFRASTRUCTURE:
-                return {
-                    'cpu_usage': [random.uniform(0.1, 0.9) for _ in range(5)],
-                    'memory_usage': [random.uniform(0.2, 0.8) for _ in range(5)],
-                    'network_latency': [random.randint(10, 100) for _ in range(5)],
-                    'disk_io': [random.randint(20, 200) for _ in range(5)]
-                }
-            elif domain == DomainType.FINANCE:
-                return [random.uniform(90, 110) for _ in range(10)]
-            elif domain == DomainType.NATURAL_LANGUAGE:
-                sentiments = [
-                    "This is an excellent product with amazing features!",
-                    "The service was terrible and disappointing.",
-                    "Average quality, nothing special but acceptable.",
-                    "Outstanding performance, highly recommended!",
-                    "Poor value for money, would not buy again."
-                ]
-                return random.choice(sentiments)
-            elif domain == DomainType.HEALTHCARE:
-                return {
-                    'symptoms': random.sample(['fever', 'cough', 'fatigue', 'headache', 'nausea'],
-                                            random.randint(1, 3)),
-                    'vital_signs': {
-                        'temperature': random.uniform(97.0, 102.0),
-                        'heart_rate': random.randint(60, 120),
-                        'blood_pressure': f"{random.randint(90, 160)}/{random.randint(60, 100)}"
-                    },
-                    'age': random.randint(18, 80)
-                }
-            else:
-                # Default for other domains
-                return [random.uniform(0, 1) for _ in range(random.randint(5, 20))]
-
-        # Main continuous learning loop
-        logger.info("🔄 Starting continuous learning loop...")
+        # Main loop
         task_counter = 0
-
         while True:
             try:
-                time.sleep(60)  # Process new tasks every minute
+                time.sleep(60)  # Process every minute
                 task_counter += 1
 
-                try:
-                    # Generate compatible domain-task type pairs
-                    domain, task_type = get_compatible_task_pair()
-                    input_data = generate_domain_specific_data(domain, task_type)
+                # Create sample task
+                sample_task = UniversalTask(
+                    task_id=f"sample_{task_counter}",
+                    domain=DomainType.INFRASTRUCTURE,
+                    task_type=TaskType.MONITORING,
+                    input_data={'cpu_usage': 0.75, 'memory_usage': 0.60},
+                    metadata={'source': 'continuous_learning'}
+                )
 
-                    # Create and process task
-                    continuous_task = UniversalTask(
-                        task_id=f"continuous_{task_counter}",
-                        domain=domain,
-                        task_type=task_type,
-                        input_data=input_data,
-                        metadata={'source': 'continuous_learning', 'iteration': task_counter}
-                    )
+                # Process task
+                solution = universal_system.process_universal_task(sample_task)
 
-                    # Process task
-                    solution = universal_system.process_universal_task(continuous_task)
+                # Log progress every 10 tasks
+                if task_counter % 10 == 0:
+                    status = universal_system.get_system_status()
+                    logger.info(f"📊 Progress: {status['performance_metrics']['total_tasks_processed']} tasks processed")
 
-                    # Log progress every 10 tasks
-                    if task_counter % 10 == 0:
-                        status = universal_system.get_system_status()
-                        logger.info(f"🔄 Continuous Learning Progress:")
-                        logger.info(f"   Tasks processed: {status['performance_metrics']['total_tasks_processed']}")
-                        success_rate = status['performance_metrics']['successful_resolutions'] / max(1, status['performance_metrics']['total_tasks_processed']) * 100
-                        logger.info(f"   Success rate: {success_rate:.1f}%")
-                        logger.info(f"   Domains mastered: {len(status['performance_metrics']['domains_mastered'])}")
-                        logger.info(f"   System health: {status['system_health']['overall_score']:.3f}")
-
-                    # Save state periodically
+                    # Periodic cleanup
                     if task_counter % 100 == 0:
-                        state_file = f"models/universal_system_checkpoint_{task_counter}.json"
-                        try:
-                            universal_system.save_system_state(state_file)
-                            logger.info(f"💾 Checkpoint saved: {state_file}")
-                        except Exception as e:
-                            logger.warning(f"Failed to save checkpoint: {e}")
-
-                except Exception as e:
-                    logger.warning(f"Continuous learning iteration {task_counter} failed: {e}")
-                    # Continue with next iteration after a short delay
-                    time.sleep(10)
+                        universal_system.cleanup_resources()
+                        logger.info("🧹 Performed periodic cleanup")
 
             except KeyboardInterrupt:
-                logger.info("🛑 Shutting down Universal Neural System...")
-                # Save system state
-                timestamp = int(time.time())
-                state_file = f"models/universal_system_state_{timestamp}.json"
-                try:
-                    if universal_system.save_system_state(state_file):
-                        logger.info(f"💾 System state saved to {state_file}")
-                except Exception as e:
-                    logger.error(f"Failed to save final state: {e}")
+                logger.info("🛑 Shutting down...")
                 break
             except Exception as e:
                 logger.error(f"Main loop error: {e}")
-                # Wait before retrying to avoid rapid failure loops
                 time.sleep(30)
 
     except Exception as e:
-        logger.error(f"❌ Failed to initialize Universal Neural System: {e}")
+        logger.error(f"System startup failed: {e}")
         import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-        return
-
-    logger.info("🔄 System shutdown complete")
+        traceback.print_exc()
 
 
-
-
-
-
-
-
-
-
-
-
-def create_sample_tasks():
-    """Create sample tasks for demonstration"""
-    sample_tasks = [
-        # Infrastructure tasks
-        UniversalTask(
-            task_id="infra_001",
-            domain=DomainType.INFRASTRUCTURE,
-            task_type=TaskType.ANOMALY_DETECTION,
-            input_data={
-                'cpu_usage': [0.8, 0.85, 0.9, 0.95, 0.88],
-                'memory_usage': [0.7, 0.75, 0.8, 0.85, 0.82],
-                'network_latency': [50, 55, 60, 65, 58]
-            },
-            metadata={'server_id': 'web-01', 'region': 'us-east-1'}
-        ),
-        # Finance tasks
-        UniversalTask(
-            task_id="finance_001",
-            domain=DomainType.FINANCE,
-            task_type=TaskType.TIME_SERIES_FORECASTING,
-            input_data=[100, 102, 98, 105, 110, 108, 112, 115, 118, 120],
-            metadata={'symbol': 'AAPL', 'timeframe': '1d'}
-        ),
-        # Healthcare tasks
-        UniversalTask(
-            task_id="health_001",
-            domain=DomainType.HEALTHCARE,
-            task_type=TaskType.CLASSIFICATION,
-            input_data={
-                'symptoms': ['fever', 'cough', 'fatigue'],
-                'vital_signs': {'temperature': 101.5, 'heart_rate': 85, 'blood_pressure': '120/80'},
-                'age': 35,
-                'gender': 'female'
-            },
-            metadata={'patient_id': 'P001', 'urgency': 'medium'}
-        ),
-        # Natural Language tasks
-        UniversalTask(
-            task_id="nlp_001",
-            domain=DomainType.NATURAL_LANGUAGE,
-            task_type=TaskType.SENTIMENT_ANALYSIS,
-            input_data="This product is absolutely amazing! I love how easy it is to use and the results are fantastic.",
-            metadata={'source': 'product_review', 'language': 'en'}
-        ),
-        # Computer Vision tasks
-        UniversalTask(
-            task_id="cv_001",
-            domain=DomainType.COMPUTER_VISION,
-            task_type=TaskType.CLASSIFICATION,
-            input_data="image_data_placeholder",  # In real scenario, this would be image data
-            metadata={'image_type': 'medical_scan', 'resolution': '512x512'}
-        ),
-        # Manufacturing tasks
-        UniversalTask(
-            task_id="mfg_001",
-            domain=DomainType.MANUFACTURING,
-            task_type=TaskType.ANOMALY_DETECTION,
-            input_data={
-                'temperature': [220, 225, 230, 228, 232],
-                'pressure': [15.2, 15.5, 15.8, 15.6, 15.9],
-                'vibration': [0.1, 0.12, 0.11, 0.13, 0.12]
-            },
-            metadata={'machine_id': 'CNC_001', 'batch_id': 'B2024001'}
-        )
-    ]
-    return sample_tasks
-
-# Signal handler for graceful shutdown
+# Signal handlers
 def signal_handler(signum, frame):
-    """Handle shutdown signals gracefully"""
-    logger.info("🛑 Shutting down Universal Neural System...")
-
-    # Save system state if universal_system is available
-    try:
-        if 'universal_system' in globals():
-            timestamp = int(time.time())
-            state_file = f"models/universal_system_state_{timestamp}.json"
-            if universal_system.save_system_state(state_file):
-                logger.info(f"💾 System state saved to {state_file}")
-    except Exception as e:
-        logger.error(f"Failed to save system state: {e}")
-
+    logger.info("🛑 Received shutdown signal")
     sys.exit(0)
 
-# Register signal handlers
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-# Main execution
+# Entry point
 if __name__ == "__main__":
-    try:
-        logger.info("🚀 Starting Intel Universal Neural System...")
-
-        # Initialize GitHub integration first
-        # if github_modules:
-        #    logger.info(f"🎉 GitHub integration active with {len(github_modules)} modules")
-
-        # Start the main universal system
-        main_universal_neural_system()
-
-    except KeyboardInterrupt:
-        print("\n🛑 System shutdown requested by user")
-        logger.info("System shutdown by user interrupt")
-    except Exception as e:
-        print(f"\n❌ System failed to start: {e}")
-        logger.error(f"System startup failed: {e}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-        traceback.print_exc()
-    finally:
-        logger.info("🔄 System shutdown complete")
+    main()
