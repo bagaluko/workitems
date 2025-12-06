@@ -31,6 +31,8 @@ matplotlib
 seaborn
 plotly
 
+python-magic
+
 # Data Processing & Messaging
 kafka-python
 paramiko
